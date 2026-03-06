@@ -14,6 +14,7 @@
     "p": "bin/pty-mgr"
   },
   "scripts": {
+    "test": "bun test",
     "demo": "bun bin/pty-mgr demo",
     "build": "bun build bin/pty-mgr.mjs --compile --outfile dist/pty-mgr"
   },

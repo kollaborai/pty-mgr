@@ -18,6 +18,9 @@ jobs:
 
       - run: bun install
 
+      - name: Test suite
+        run: bun test
+
       - name: Smoke test
         run: bun run demo
 

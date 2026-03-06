@@ -1,0 +1,304 @@
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
+import { existsSync, unlinkSync } from 'node:fs';
+import { createConnection } from 'node:net';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { homedir } from 'node:os';
+
+const DAEMON_NAME = `test-daemon-${Date.now()}`;
+const SOCKET_PATH = join(homedir(), '.pty-manager', `${DAEMON_NAME}.sock`);
+
+let daemonProc = null;
+
+async function sendCmd(cmd) {
+  return new Promise((resolve, reject) => {
+    const conn = createConnection(SOCKET_PATH);
+    conn.on('error', reject);
+    conn.on('connect', () => {
+      conn.write(JSON.stringify(cmd) + '\n');
+    });
+    let buf = '';
+    conn.on('data', d => {
+      buf += d.toString();
+      const nl = buf.indexOf('\n');
+      if (nl !== -1) {
+        conn.end();
+        try {
+          resolve(JSON.parse(buf.slice(0, nl)));
+        } catch (e) {
+          reject(e);
+        }
+      }
+    });
+    conn.on('end', () => {
+      if (buf && !buf.includes('\n')) {
+        try {
+          resolve(JSON.parse(buf));
+        } catch (e) {
+          reject(new Error(`No newline in response: ${buf}`));
+        }
+      }
+    });
+  });
+}
+
+function waitForSocket(maxMs = 3000, interval = 100) {
+  const start = Date.now();
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      if (existsSync(SOCKET_PATH)) {
+        resolve(true);
+      } else if (Date.now() - start > maxMs) {
+        reject(new Error(`Socket not appeared after ${maxMs}ms`));
+      } else {
+        setTimeout(check, interval);
+      }
+    };
+    check();
+  });
+}
+
+async function startDaemon() {
+  daemonProc = Bun.spawn(['bun', 'bin/pty-mgr.mjs', `@${DAEMON_NAME}`, 'daemon'], {
+    env: { ...process.env, __PTY_DAEMON_CHILD: '1' },
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  await waitForSocket();
+  await new Promise(r => setTimeout(r, 500));
+}
+
+async function stopDaemon() {
+  try {
+    await sendCmd({ cmd: 'stop' });
+  } catch {}
+  try {
+    daemonProc?.kill();
+  } catch {}
+  try {
+    if (existsSync(SOCKET_PATH)) unlinkSync(SOCKET_PATH);
+  } catch {}
+}
+
+describe('daemon protocol', () => {
+  beforeAll(async () => {
+    await startDaemon();
+  }, 10000);
+
+  afterAll(async () => {
+    await stopDaemon();
+  });
+
+  describe('spawn + capture', () => {
+    it('spawns an echo command and captures output', async () => {
+      const spawnRes = await sendCmd({
+        cmd: 'spawn',
+        name: 's1',
+        args: { cmd: 'echo', args: ['hello'] },
+      });
+      expect(spawnRes.ok).toBe(true);
+      expect(spawnRes.name).toBe('s1');
+      expect(typeof spawnRes.pid).toBe('number');
+
+      await new Promise(r => setTimeout(r, 500));
+
+      const capRes = await sendCmd({
+        cmd: 'capture',
+        name: 's1',
+        args: { lines: 5 },
+      });
+      expect(capRes.ok).toBe(true);
+      expect(capRes.output).toContain('hello');
+    });
+
+    it('rejects duplicate session names', async () => {
+      const res = await sendCmd({
+        cmd: 'spawn',
+        name: 's1',
+        args: { cmd: 'echo', args: ['dup'] },
+      });
+      expect(res.ok).toBe(false);
+      expect(res.error).toBeTruthy();
+    });
+  });
+
+  describe('send', () => {
+    it('sends keys to a zsh session and captures result', async () => {
+      const spawnRes = await sendCmd({
+        cmd: 'spawn',
+        name: 'send-test',
+        args: { cmd: 'zsh' },
+      });
+      expect(spawnRes.ok).toBe(true);
+
+      await new Promise(r => setTimeout(r, 300));
+
+      await sendCmd({
+        cmd: 'send',
+        name: 'send-test',
+        args: { text: 'echo test123\r' },
+      });
+
+      await new Promise(r => setTimeout(r, 500));
+
+      const capRes = await sendCmd({
+        cmd: 'capture',
+        name: 'send-test',
+        args: { lines: 10 },
+      });
+      expect(capRes.ok).toBe(true);
+      expect(capRes.output).toContain('test123');
+    });
+  });
+
+  describe('kill + remove', () => {
+    it('kills a session and reports it not alive', async () => {
+      await sendCmd({
+        cmd: 'spawn',
+        name: 'kill-test',
+        args: { cmd: 'zsh' },
+      });
+
+      const killRes = await sendCmd({
+        cmd: 'kill',
+        name: 'kill-test',
+      });
+      expect(killRes.ok).toBe(true);
+      expect(killRes.killed).toContain('kill-test');
+
+      await new Promise(r => setTimeout(r, 300));
+      const aliveRes = await sendCmd({
+        cmd: 'alive',
+        name: 'kill-test',
+      });
+      expect(aliveRes.ok).toBe(true);
+      expect(aliveRes.alive).toBe(false);
+    });
+
+    it('removes a session from registry', async () => {
+      const removeRes = await sendCmd({
+        cmd: 'remove',
+        name: 'kill-test',
+      });
+      expect(removeRes.ok).toBe(true);
+      expect(removeRes.removed).toContain('kill-test');
+    });
+  });
+
+  describe('wrap', () => {
+    it('wraps a command in tmp directory', async () => {
+      const res = await sendCmd({
+        cmd: 'wrap',
+        args: { cmd: 'zsh', cwd: '/tmp' },
+      });
+      expect(res.ok).toBe(true);
+      expect(res.name).toMatch(/^tmp-\d+$/);
+      expect(typeof res.pid).toBe('number');
+    });
+
+    it('increments wrap counter for same cwd', async () => {
+      const res1 = await sendCmd({
+        cmd: 'wrap',
+        args: { cmd: 'zsh', cwd: '/tmp' },
+      });
+      const res2 = await sendCmd({
+        cmd: 'wrap',
+        args: { cmd: 'zsh', cwd: '/tmp' },
+      });
+      expect(res1.ok).toBe(true);
+      expect(res2.ok).toBe(true);
+      expect(res1.name).not.toBe(res2.name);
+    });
+
+    it('uses base from cwd for wrap name', async () => {
+      const res = await sendCmd({
+        cmd: 'wrap',
+        args: { cmd: '/bin/echo', args: ['hi'], cwd: '/tmp', base: 'my.project' },
+      });
+      expect(res.ok).toBe(true);
+      expect(res.name).toMatch(/^my\.project-\d+$/);
+    });
+  });
+
+  describe('bulk operations', () => {
+    it('kills all sessions with "all" keyword', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'bulk-a', args: { cmd: 'zsh' } });
+      await sendCmd({ cmd: 'spawn', name: 'bulk-b', args: { cmd: 'zsh' } });
+      await sendCmd({ cmd: 'spawn', name: 'bulk-c', args: { cmd: 'zsh' } });
+
+      const res = await sendCmd({ cmd: 'kill', name: 'all' });
+      expect(res.ok).toBe(true);
+      expect(res.killed).toContain('bulk-a');
+      expect(res.killed).toContain('bulk-b');
+      expect(res.killed).toContain('bulk-c');
+    });
+
+    it('kills sessions matching glob pattern', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'test-a', args: { cmd: 'zsh' } });
+      await sendCmd({ cmd: 'spawn', name: 'test-b', args: { cmd: 'zsh' } });
+      await sendCmd({ cmd: 'spawn', name: 'other', args: { cmd: 'zsh' } });
+
+      const res = await sendCmd({ cmd: 'kill', name: 'test-*' });
+      expect(res.ok).toBe(true);
+      expect(res.killed).toContain('test-a');
+      expect(res.killed).toContain('test-b');
+      expect(res.killed).not.toContain('other');
+    });
+  });
+
+  describe('list', () => {
+    it('lists all active sessions', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'list-1', args: { cmd: 'zsh' } });
+      await sendCmd({ cmd: 'spawn', name: 'list-2', args: { cmd: 'zsh' } });
+
+      const res = await sendCmd({ cmd: 'list' });
+      expect(res.ok).toBe(true);
+      expect(Array.isArray(res.sessions)).toBe(true);
+      expect(res.sessions.some(s => s.name === 'list-1')).toBe(true);
+      expect(res.sessions.some(s => s.name === 'list-2')).toBe(true);
+    });
+  });
+
+  describe('rename', () => {
+    it('renames a session', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'old-name', args: { cmd: 'zsh' } });
+
+      const res = await sendCmd({
+        cmd: 'rename',
+        name: 'old-name',
+        args: { newName: 'new-name' },
+      });
+      expect(res.ok).toBe(true);
+      expect(res.oldName).toBe('old-name');
+      expect(res.newName).toBe('new-name');
+    });
+  });
+
+  describe('config', () => {
+    it('sets screen size config', async () => {
+      const res = await sendCmd({
+        cmd: 'config',
+        args: { key: 'screen', value: '120x40' },
+      });
+      expect(res.ok).toBe(true);
+    });
+
+    it('sets cap-on-send config', async () => {
+      const res = await sendCmd({
+        cmd: 'config',
+        args: { key: 'cap-on-send', value: 'on' },
+      });
+      expect(res.ok).toBe(true);
+    });
+  });
+
+  describe('status', () => {
+    it('returns daemon status with uptime', async () => {
+      const res = await sendCmd({ cmd: 'status' });
+      expect(res.ok).toBe(true);
+      expect(res.status).toBeDefined();
+      expect(typeof res.status.uptimeMs).toBe('number');
+      expect(typeof res.status.sessions.total).toBe('number');
+    });
+  });
+});
