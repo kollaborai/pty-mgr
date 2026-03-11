@@ -1,0 +1,23 @@
+{
+  "name": "@pty-mgr/darwin-arm64",
+  "version": "1.2.0",
+  "description": "pty-mgr binary for macOS arm64 (Apple Silicon)",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "bin": {
+    "pty-mgr": "pty-mgr"
+  },
+  "files": [
+    "pty-mgr"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kollaborai/pty-mgr.git"
+  },
+  "preferUnplugged": true
+}

@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.sock
 .DS_Store
+
+# platform binaries (CI copies these during publish)
+npm/*/pty-mgr

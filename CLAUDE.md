@@ -64,3 +64,22 @@ a=attach, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
 - Env var whitelist in daemon spawn to prevent injection (PATH, HOME, API keys, etc).
 - Socket permissions set to 0o600 (owner-only).
 - ESM throughout (`"type": "module"` in package.json).
+
+## Distribution
+
+Compiled binary via `bun build --compile`. Published to npm with
+platform-specific optionalDependencies (esbuild pattern):
+
+  npm install -g pty-mgr     # downloads binary for your OS/arch
+  curl ... | sh              # alternative: install.sh from GH releases
+
+Platform packages: @pty-mgr/linux-x64, @pty-mgr/linux-arm64,
+@pty-mgr/darwin-x64, @pty-mgr/darwin-arm64
+
+Release flow: bump version -> `npm run version:sync` -> tag -> push
+CI builds all 4 binaries, publishes to npm + GH releases.
+
+## Git
+
+remote: https://github.com/kollaborai/pty-mgr.git
+gh cli is authed as kollaborai, push directly.

@@ -35,3 +35,49 @@ jobs:
             dist/pty-mgr-linux-arm64
             dist/pty-mgr-darwin-x64
             dist/pty-mgr-darwin-arm64
+
+      - name: Upload binaries for npm job
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/pty-mgr-*
+
+  publish-npm:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist
+
+      - name: Stage platform binaries
+        run: |
+          cp dist/pty-mgr-linux-x64   npm/linux-x64/pty-mgr
+          cp dist/pty-mgr-linux-arm64  npm/linux-arm64/pty-mgr
+          cp dist/pty-mgr-darwin-x64   npm/darwin-x64/pty-mgr
+          cp dist/pty-mgr-darwin-arm64 npm/darwin-arm64/pty-mgr
+          chmod +x npm/*/pty-mgr
+
+      - name: Publish platform packages
+        run: |
+          for dir in npm/linux-x64 npm/linux-arm64 npm/darwin-x64 npm/darwin-arm64; do
+            echo "publishing $dir..."
+            cd "$dir"
+            npm publish --access public || true
+            cd ../..
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish main package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

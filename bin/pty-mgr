@@ -1,2 +1,71 @@
-#!/usr/bin/env bun
-import "../lib/pty-manager.mjs";
+#!/usr/bin/env node
+
+// Binary launcher for pty-mgr.
+// Finds the platform-specific binary installed via optionalDependencies
+// and executes it with the same args.
+
+import { execFileSync } from "child_process";
+import { existsSync } from "fs";
+import { dirname, join } from "path";
+import { createRequire } from "module";
+import { fileURLToPath } from "url";
+
+const require = createRequire(import.meta.url);
+
+const PLATFORMS = {
+  "linux-x64": "@pty-mgr/linux-x64",
+  "linux-arm64": "@pty-mgr/linux-arm64",
+  "darwin-x64": "@pty-mgr/darwin-x64",
+  "darwin-arm64": "@pty-mgr/darwin-arm64",
+};
+
+function getBinaryPath() {
+  const key = `${process.platform}-${process.arch}`;
+  const pkg = PLATFORMS[key];
+
+  if (!pkg) {
+    console.error(
+      `pty-mgr: unsupported platform ${process.platform}-${process.arch}`
+    );
+    console.error("supported: linux-x64, linux-arm64, darwin-x64, darwin-arm64");
+    process.exit(1);
+  }
+
+  // try to find the binary from the installed optional dep
+  try {
+    const pkgDir = dirname(require.resolve(`${pkg}/package.json`));
+    const bin = join(pkgDir, "pty-mgr");
+    if (existsSync(bin)) return bin;
+  } catch {}
+
+  // fallback: check ~/.pty-mgr/bin/ (install.sh location)
+  const homeBin = join(
+    process.env.HOME || process.env.USERPROFILE || "",
+    ".pty-mgr",
+    "bin",
+    "pty-mgr"
+  );
+  if (existsSync(homeBin)) return homeBin;
+
+  console.error("pty-mgr: binary not found");
+  console.error("");
+  console.error("install it:");
+  console.error(
+    "  curl -fsSL https://raw.githubusercontent.com/kollaborai/pty-mgr/main/install.sh | sh"
+  );
+  console.error("");
+  console.error("or reinstall this package:");
+  console.error("  npm install -g pty-mgr");
+  process.exit(1);
+}
+
+const bin = getBinaryPath();
+
+try {
+  execFileSync(bin, process.argv.slice(2), {
+    stdio: "inherit",
+    env: process.env,
+  });
+} catch (e) {
+  process.exit(e.status || 1);
+}

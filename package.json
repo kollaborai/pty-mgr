@@ -1,6 +1,6 @@
 {
   "name": "pty-mgr",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "PTY session manager with terminal emulation for programmatic session control.",
   "type": "module",
   "main": "lib/pty-manager.mjs",
@@ -15,17 +15,27 @@
   },
   "scripts": {
     "test": "bun test",
-    "demo": "bun bin/pty-mgr demo",
-    "build": "bun build bin/pty-mgr.mjs --compile --outfile dist/pty-mgr"
+    "demo": "bun bin/pty-mgr.mjs demo",
+    "build": "bun build bin/pty-mgr.mjs --compile --outfile dist/pty-mgr",
+    "build:all": "bun build bin/pty-mgr.mjs --compile --target=bun-linux-x64 --outfile dist/pty-mgr-linux-x64 && bun build bin/pty-mgr.mjs --compile --target=bun-linux-arm64 --outfile dist/pty-mgr-linux-arm64 && bun build bin/pty-mgr.mjs --compile --target=bun-darwin-x64 --outfile dist/pty-mgr-darwin-x64 && bun build bin/pty-mgr.mjs --compile --target=bun-darwin-arm64 --outfile dist/pty-mgr-darwin-arm64",
+    "install-local": "bun build bin/pty-mgr.mjs --compile --outfile ~/.pty-mgr/bin/pty-mgr",
+    "version:sync": "node scripts/version-sync.cjs"
   },
   "dependencies": {
+    "@xterm/addon-serialize": "^0.14.0",
     "@xterm/headless": "^6.0.0"
+  },
+  "optionalDependencies": {
+    "@pty-mgr/linux-x64": "1.2.0",
+    "@pty-mgr/linux-arm64": "1.2.0",
+    "@pty-mgr/darwin-x64": "1.2.0",
+    "@pty-mgr/darwin-arm64": "1.2.0"
   },
   "engines": {
     "bun": ">=1.0"
   },
   "files": [
-    "bin/",
+    "bin/pty-mgr",
     "lib/",
     "README.md",
     "LICENSE"
@@ -39,7 +49,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/maarco/pty-mgr.git"
+    "url": "https://github.com/kollaborai/pty-mgr.git"
   },
   "license": "MIT"
 }

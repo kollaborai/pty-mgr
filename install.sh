@@ -2,9 +2,9 @@
 set -e
 
 # pty-mgr installer
-# usage: curl -fsSL https://raw.githubusercontent.com/maarco/pty-mgr/main/install.sh | sh
+# usage: curl -fsSL https://raw.githubusercontent.com/kollaborai/pty-mgr/main/install.sh | sh
 
-REPO="maarco/pty-mgr"
+REPO="kollaborai/pty-mgr"
 INSTALL_DIR="$HOME/.pty-mgr/bin"
 
 main() {
