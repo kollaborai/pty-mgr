@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { realpathSync } from 'fs';
 import { join } from 'path';
 
-const BIN_PATH = realpathSync(join(import.meta.dir, '..', 'bin', 'pty-mgr'));
+const BIN_PATH = realpathSync(join(import.meta.dir, '..', 'bin', 'pty-mgr.mjs'));
 const DAEMON_NAME = `@test-cli-${Date.now()}`;
 const DAEMON_SOCK = join(process.env.HOME, '.pty-manager', `${DAEMON_NAME.slice(1)}.sock`);
 
@@ -36,21 +36,21 @@ async function waitForSocket(ms = 5000) {
 }
 
 describe('cli: version', () => {
-  it('run("-v") outputs "1.1.2"', () => {
+  it('run("-v") outputs "1.2.0"', () => {
     const r = run('-v');
-    expect(r.stdout).toBe('1.1.2');
+    expect(r.stdout).toBe('1.2.1');
     expect(r.exitCode).toBe(0);
   });
 
-  it('run("--version") outputs "1.1.2"', () => {
+  it('run("--version") outputs "1.2.1"', () => {
     const r = run('--version');
-    expect(r.stdout).toBe('1.1.2');
+    expect(r.stdout).toBe('1.2.1');
     expect(r.exitCode).toBe(0);
   });
 
-  it('run("version") outputs "1.1.2"', () => {
+  it('run("version") outputs "1.2.1"', () => {
     const r = run('version');
-    expect(r.stdout).toBe('1.1.2');
+    expect(r.stdout).toBe('1.2.1');
     expect(r.exitCode).toBe(0);
   });
 });

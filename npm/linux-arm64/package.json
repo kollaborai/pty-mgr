@@ -1,6 +1,6 @@
 {
   "name": "@pty-mgr/linux-arm64",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "pty-mgr binary for Linux arm64",
   "os": [
     "linux"
