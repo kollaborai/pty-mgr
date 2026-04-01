@@ -29,4 +29,16 @@ fs.writeFileSync(
   JSON.stringify(rootPkg, null, 2) + "\n"
 );
 
+// update VERSION in lib/pty-manager.mjs
+const libPath = path.join(root, "lib", "pty-manager.mjs");
+const lib = fs.readFileSync(libPath, "utf8");
+const updated = lib.replace(
+  /export const VERSION = "[^"]+";/,
+  `export const VERSION = "${version}";`
+);
+if (updated !== lib) {
+  fs.writeFileSync(libPath, updated);
+  console.log(`  lib/pty-manager.mjs -> ${version}`);
+}
+
 console.log(`\nall packages synced to v${version}`);
