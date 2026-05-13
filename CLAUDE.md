@@ -70,11 +70,12 @@ a=attach, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
 Compiled binary via `bun build --compile`. Published to npm with
 platform-specific optionalDependencies (esbuild pattern):
 
-  npm install -g pty-mgr     # downloads binary for your OS/arch
+  npm install -g @mentiko/pty-mgr  # downloads binary for your OS/arch
   curl ... | sh              # alternative: install.sh from GH releases
 
-Platform packages: @pty-mgr/linux-x64, @pty-mgr/linux-arm64,
-@pty-mgr/darwin-x64, @pty-mgr/darwin-arm64
+Platform packages: @mentiko/pty-mgr-linux-x64,
+@mentiko/pty-mgr-linux-arm64, @mentiko/pty-mgr-darwin-x64,
+@mentiko/pty-mgr-darwin-arm64
 
 Release flow: bump version -> `npm run version:sync` -> tag -> push
 CI builds all 4 binaries, publishes to npm + GH releases.

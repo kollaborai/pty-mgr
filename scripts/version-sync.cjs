@@ -11,18 +11,21 @@ const rootPkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf
 const version = rootPkg.version;
 
 const platforms = ["linux-x64", "linux-arm64", "darwin-x64", "darwin-arm64"];
+const platformPackage = platform => `@mentiko/pty-mgr-${platform}`;
 
 for (const platform of platforms) {
   const pkgPath = path.join(root, "npm", platform, "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  pkg.name = platformPackage(platform);
   pkg.version = version;
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
   console.log(`  ${platform} -> ${version}`);
 }
 
 // update optionalDependencies in root
+rootPkg.optionalDependencies = {};
 for (const platform of platforms) {
-  rootPkg.optionalDependencies[`@pty-mgr/${platform}`] = version;
+  rootPkg.optionalDependencies[platformPackage(platform)] = version;
 }
 fs.writeFileSync(
   path.join(root, "package.json"),

@@ -13,10 +13,10 @@ import { fileURLToPath } from "url";
 const require = createRequire(import.meta.url);
 
 const PLATFORMS = {
-  "linux-x64": "@pty-mgr/linux-x64",
-  "linux-arm64": "@pty-mgr/linux-arm64",
-  "darwin-x64": "@pty-mgr/darwin-x64",
-  "darwin-arm64": "@pty-mgr/darwin-arm64",
+  "linux-x64": "@mentiko/pty-mgr-linux-x64",
+  "linux-arm64": "@mentiko/pty-mgr-linux-arm64",
+  "darwin-x64": "@mentiko/pty-mgr-darwin-x64",
+  "darwin-arm64": "@mentiko/pty-mgr-darwin-arm64",
 };
 
 function getBinaryPath() {
@@ -55,7 +55,7 @@ function getBinaryPath() {
   );
   console.error("");
   console.error("or reinstall this package:");
-  console.error("  npm install -g pty-mgr");
+  console.error("  npm install -g @mentiko/pty-mgr");
   process.exit(1);
 }
 
