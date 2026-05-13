@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr-linux-x64",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "pty-mgr binary for Linux x64",
   "os": [
     "linux"
@@ -8,9 +8,6 @@
   "cpu": [
     "x64"
   ],
-  "bin": {
-    "pty-mgr": "pty-mgr"
-  },
   "files": [
     "pty-mgr"
   ],

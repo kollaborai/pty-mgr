@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr-darwin-x64",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "pty-mgr binary for macOS x64 (Intel)",
   "os": [
     "darwin"
@@ -8,9 +8,6 @@
   "cpu": [
     "x64"
   ],
-  "bin": {
-    "pty-mgr": "pty-mgr"
-  },
   "files": [
     "pty-mgr"
   ],

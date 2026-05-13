@@ -18,6 +18,7 @@ for (const platform of platforms) {
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
   pkg.name = platformPackage(platform);
   pkg.version = version;
+  delete pkg.bin;
   fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
   console.log(`  ${platform} -> ${version}`);
 }

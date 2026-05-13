@@ -14,7 +14,7 @@ Single-file architecture in `lib/pty-manager.mjs` (~1400 lines). Contains:
   native addons). The xterm emulator parses escape codes so `capture()` returns
   rendered screen state.
 - `PtyManager` class: session registry. spawn/sendKeys/capture/kill/waitFor/waitForExit.
-  Exported for library use: `import { PtyManager } from 'pty-mgr'`
+  Exported for library use: `import { PtyManager } from '@mentiko/pty-mgr'`
 - Daemon: Unix socket server (JSON-over-newline protocol). Holds sessions persistently.
   Socket at `~/.pty-manager/<name>.sock`. Supports `attach` (raw streaming mode).
 - CLI: full command parser with aliases. Entry point `bin/pty-mgr` (also `p`).

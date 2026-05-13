@@ -19,15 +19,23 @@ Compiles to a single self-contained binary via `bun build --compile`.
 ### Binary (no dependencies)
 
 ```
-curl -fsSL https://raw.githubusercontent.com/maarco/pty-mgr/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/kollaborai/pty-mgr/main/install.sh | sh
 ```
 
 Installs to `~/.pty-mgr/bin/` and adds to PATH. Works on Linux and macOS (x64, arm64).
 
+### NPM package
+
+```
+npm install -g @mentiko/pty-mgr
+```
+
+Installs the wrapper plus the platform binary for your OS/arch.
+
 ### Bun package (for library use)
 
 ```
-bun add pty-mgr
+bun add @mentiko/pty-mgr
 ```
 
 Requires [Bun](https://bun.sh) runtime.
@@ -37,7 +45,7 @@ Requires [Bun](https://bun.sh) runtime.
 ### As a library
 
 ```js
-import { PtyManager } from 'pty-mgr';
+import { PtyManager } from '@mentiko/pty-mgr';
 
 const mgr = new PtyManager();
 mgr.spawn('my-session', 'zsh', [], { cols: 120, rows: 30 });
@@ -136,7 +144,7 @@ $ p attach my-app-1          # jump back into agent 1
 ### Programmatic (parallel agents)
 
 ```js
-import { PtyManager } from 'pty-mgr';
+import { PtyManager } from '@mentiko/pty-mgr';
 
 const mgr = new PtyManager();
 
