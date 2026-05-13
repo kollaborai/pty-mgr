@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
       - uses: actions/download-artifact@v4
@@ -66,18 +66,49 @@ jobs:
           cp dist/pty-mgr-darwin-arm64 npm/darwin-arm64/pty-mgr
           chmod +x npm/*/pty-mgr
 
-      - name: Publish platform packages
-        run: |
-          for dir in npm/linux-x64 npm/linux-arm64 npm/darwin-x64 npm/darwin-arm64; do
-            echo "publishing $dir..."
-            cd "$dir"
-            npm publish --access public || true
-            cd ../..
-          done
+      - name: Verify npm auth
+        run: npm whoami
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish main package
-        run: npm publish --access public
+      - name: Publish platform packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          publish_package() {
+            dir="$1"
+            cd "$dir"
+
+            name="$(node -p "require('./package.json').name")"
+            version="$(node -p "require('./package.json').version")"
+            package="$name@$version"
+
+            if npm view "$package" version >/dev/null 2>&1; then
+              echo "$package is already published; skipping."
+            else
+              echo "publishing $package..."
+              npm publish --access public
+            fi
+
+            cd - >/dev/null
+          }
+
+          publish_package npm/linux-x64
+          publish_package npm/linux-arm64
+          publish_package npm/darwin-x64
+          publish_package npm/darwin-arm64
+
+      - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          package="$name@$version"
+
+          if npm view "$package" version >/dev/null 2>&1; then
+            echo "$package is already published; skipping."
+          else
+            echo "publishing $package..."
+            npm publish --access public
+          fi
