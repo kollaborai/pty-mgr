@@ -96,6 +96,7 @@ function adapterForKind(kind, config) {
       sessionTimestampPaths: ['timestamp'],
       assistant: {
         where: { type: 'assistant' },
+        complete: { stop_reason: 'end_turn' },
         text: [{ array: 'message.content', where: { type: 'text' }, path: 'text' }],
       },
     };
@@ -151,7 +152,7 @@ export function findNewestTranscript({ kind, cwd = process.cwd(), sinceMs = 0, c
     .sort((a, b) => {
       const aHasStart = a.startedMs !== null;
       const bHasStart = b.startedMs !== null;
-      if (aHasStart && bHasStart) return a.startedMs - b.startedMs;
+      if (aHasStart && bHasStart) return b.startedMs - a.startedMs;
       if (aHasStart !== bHasStart) return aHasStart ? -1 : 1;
       return b.mtimeMs - a.mtimeMs;
     });
@@ -179,6 +180,7 @@ function textFromSelector(obj, selector) {
 function assistantTextFromObject(obj, adapter) {
   const assistant = adapter.assistant || {};
   if (!matchesWhere(obj, assistant.where || {})) return '';
+  if (assistant.complete && !matchesWhere(obj, assistant.complete)) return '';
 
   let text = (assistant.text || [])
     .map((selector) => textFromSelector(obj, selector))

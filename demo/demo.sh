@@ -4,11 +4,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TASK="Notice any issues with this codebase."
-WATCH_INTERVAL="1s"
+WATCH_INTERVAL="10s"
 MAX_CYCLES="1"
 CLAUDE_SESSION=""
 CODEX_SESSION=""
 START_DELAY="8"
+SETTLE_MS="1500"
 
 usage() {
   cat <<'EOF'
@@ -18,6 +19,7 @@ usage:
 options:
   --task <text>             assignment sent to the claude worker
   --watch-interval <dur>    p watch interval, e.g. 1s or 4000ms
+  --settle-ms <ms>          delay after stable watch before log parsing
   --max-cycles <n>          claude -> codex -> claude cycles
   --claude <session>        use existing claude pty session
   --codex <session>         use existing codex pty session
@@ -34,6 +36,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --task) TASK="$2"; shift 2 ;;
     --watch-interval) WATCH_INTERVAL="$2"; shift 2 ;;
+    --settle-ms) SETTLE_MS="$2"; shift 2 ;;
     --max-cycles) MAX_CYCLES="$2"; shift 2 ;;
     --claude) CLAUDE_SESSION="$2"; shift 2 ;;
     --codex) CODEX_SESSION="$2"; shift 2 ;;
@@ -84,12 +87,14 @@ echo
 echo "running pduo:"
 echo "  task:           $TASK"
 echo "  watch interval: $WATCH_INTERVAL"
+echo "  settle ms:      $SETTLE_MS"
 echo "  max cycles:     $MAX_CYCLES"
 echo
 
 pduo "$CLAUDE_SESSION" "$CODEX_SESSION" \
   --task "$TASK" \
   --watch-interval "$WATCH_INTERVAL" \
+  --settle-ms "$SETTLE_MS" \
   --max-cycles "$MAX_CYCLES" \
   --reset-state
 

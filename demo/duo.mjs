@@ -31,6 +31,7 @@ function parseArgs(argv) {
     stateDir: STATE_DIR,
     intervalMs: 1000,
     watchInterval: '4s',
+    settleMs: 1500,
     timeoutMs: 0,
     maxCycles: 1,
     dryRun: false,
@@ -46,6 +47,7 @@ function parseArgs(argv) {
     else if (arg === '--state-dir') options.stateDir = argv[++i];
     else if (arg === '--interval-ms') options.intervalMs = Number(argv[++i]);
     else if (arg === '--watch-interval') options.watchInterval = argv[++i];
+    else if (arg === '--settle-ms') options.settleMs = Number(argv[++i]);
     else if (arg === '--timeout-ms') options.timeoutMs = Number(argv[++i]);
     else if (arg === '--max-cycles') options.maxCycles = Number(argv[++i]);
     else if (!options.claudeSession) options.claudeSession = arg;
@@ -137,12 +139,25 @@ async function waitForMessage({
   intervalMs,
   timeoutMs,
   watchInterval,
+  settleMs,
   watchOverride,
 }) {
   const started = Date.now();
   while (true) {
     const status = watchSession(meta.session, watchInterval, watchOverride);
     if (status === 'done') {
+      if (settleMs > 0) {
+        await sleep(settleMs);
+        const settledStatus = watchSession(meta.session, watchInterval, watchOverride);
+        if (settledStatus !== 'done') {
+          if (settledStatus !== 'working') {
+            throw new Error(`unexpected watch status for ${meta.session}: ${settledStatus}`);
+          }
+          await sleep(intervalMs);
+          continue;
+        }
+      }
+
       const file = logFor(meta, config);
       if (file) {
         const msg = extractLastAssistantMessage(file, meta.kind, afterKey || '', config);
@@ -191,6 +206,7 @@ export async function runDuo(options, deps = {}) {
         intervalMs: options.intervalMs,
         timeoutMs: options.timeoutMs,
         watchInterval: options.watchInterval,
+        settleMs: options.settleMs,
         watchOverride: deps.watchSession,
       });
       if (!claudeMsg) {
@@ -214,6 +230,7 @@ export async function runDuo(options, deps = {}) {
       intervalMs: options.intervalMs,
       timeoutMs: options.timeoutMs,
       watchInterval: options.watchInterval,
+      settleMs: options.settleMs,
       watchOverride: deps.watchSession,
     });
     if (!codexMsg) {
