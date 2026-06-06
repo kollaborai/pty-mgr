@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { readFileSync, realpathSync } from 'fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 import { join } from 'path';
 
 const BIN_PATH = realpathSync(join(import.meta.dir, '..', 'bin', 'pty-mgr.mjs'));
@@ -12,6 +13,20 @@ const DAEMON_SOCK = join(process.env.HOME, '.pty-manager', `${DAEMON_NAME.slice(
 function run(...args) {
   const proc = Bun.spawnSync(['bun', BIN_PATH, ...args], {
     env: process.env,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  return {
+    stdout: proc.stdout.toString().trim(),
+    stderr: proc.stderr.toString().trim(),
+    exitCode: proc.exitCode,
+  };
+}
+
+function runWithInput(args, input, env = {}) {
+  const proc = Bun.spawnSync(['bun', BIN_PATH, ...args], {
+    env: { ...process.env, ...env },
+    stdin: Buffer.from(input),
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -86,6 +101,116 @@ describe('cli: no daemon error', () => {
   });
 });
 
+describe('cli: demo', () => {
+  it('runs the built-in smoke demo to completion', () => {
+    const r = run('demo');
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('hello-from-pty');
+    expect(r.stdout).toContain('MARKER_42');
+    expect(r.stdout).toContain('--- demo complete ---');
+  }, 10000);
+});
+
+describe('cli: setup', () => {
+  it('writes selected wrappers and exits cleanly', () => {
+    const home = mkdtempSync(join(tmpdir(), 'pty-mgr-setup-'));
+    const rcFile = join(home, '.zshrc');
+    writeFileSync(rcFile, '# test rc\n');
+
+    const r = runWithInput(
+      ['setup'],
+      'y\ny\nn\nno\n',
+      { HOME: home, SHELL: '/bin/zsh' },
+    );
+
+    const rc = readFileSync(rcFile, 'utf8');
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain(`added to ${rcFile}: claude, codex`);
+    expect(r.stderr).toBe('');
+    expect(rc).toContain('# pty-mgr: managed claude sessions');
+    expect(rc).toContain('# pty-mgr: managed codex sessions');
+    expect(rc).toContain('$_p wrap command claude "$@"');
+    expect(rc).toContain('$_p wrap command codex "$@"');
+    expect(rc).not.toContain('# pty-mgr: managed gemini sessions');
+  });
+
+  it('generated wrappers do not attach to failed wrap output', () => {
+    const home = mkdtempSync(join(tmpdir(), 'pty-mgr-wrapper-'));
+    const binDir = join(home, 'bin');
+    const rcFile = join(home, '.zshrc');
+    const fakePtyMgr = join(binDir, 'pty-mgr');
+    const fakeP = join(binDir, 'p');
+
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(rcFile, '');
+
+    const setup = runWithInput(
+      ['setup'],
+      'n\ny\nn\nno\n',
+      { HOME: home, SHELL: '/bin/zsh' },
+    );
+    expect(setup.exitCode).toBe(0);
+
+    writeFileSync(fakePtyMgr, `#!/bin/sh
+case "$1" in
+  status) exit 0 ;;
+  daemon) exit 0 ;;
+  wrap) echo "error: unknown command: wrap" >&2; exit 1 ;;
+  attach) echo "attach called: $2" >&2; exit 0 ;;
+esac
+exit 0
+`);
+    chmodSync(fakePtyMgr, 0o755);
+    writeFileSync(fakeP, readFileSync(fakePtyMgr));
+    chmodSync(fakeP, 0o755);
+
+    const r = Bun.spawnSync(['zsh', '-fc', `. ${rcFile}; codex`], {
+      env: {
+        ...process.env,
+        HOME: home,
+        SHELL: '/bin/zsh',
+        PATH: `${binDir}:${process.env.PATH}`,
+      },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+
+    const stderr = r.stderr.toString();
+    expect(r.exitCode).toBe(1);
+    expect(stderr).toContain('pty-mgr: wrap failed');
+    expect(stderr).toContain('daemon does not support wrap');
+    expect(stderr).toContain('unknown command: wrap');
+    expect(stderr).not.toContain('attach called:');
+  });
+
+  it('replaces existing generated wrappers during setup', () => {
+    const home = mkdtempSync(join(tmpdir(), 'pty-mgr-update-wrapper-'));
+    const rcFile = join(home, '.zshrc');
+    writeFileSync(rcFile, `before
+# pty-mgr: managed codex sessions
+codex() {
+  echo OLD_WRAPPER
+}
+after
+`);
+
+    const r = runWithInput(
+      ['setup'],
+      'n\ny\nn\nno\n',
+      { HOME: home, SHELL: '/bin/zsh' },
+    );
+
+    const rc = readFileSync(rcFile, 'utf8');
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain(`updated in ${rcFile}: codex`);
+    expect(rc).toContain('before');
+    expect(rc).toContain('after');
+    expect(rc).not.toContain('OLD_WRAPPER');
+    expect(rc).toContain('pty-mgr: wrap failed for codex');
+    expect(rc).toContain('$_p wrap command codex "$@"');
+  });
+});
+
 describe('cli: with daemon', () => {
   let daemonProc;
 
@@ -139,6 +264,31 @@ describe('cli: with daemon', () => {
       expect(r.stdout).toContain('old-name');
       expect(r.stdout).toContain('new-name');
       runDaemon('remove', 'new-name');
+    });
+  });
+
+  describe('watch output', () => {
+    it('outputs "done" when bottom 100 captured lines are stable', () => {
+      runDaemon('spawn', 'watch-stable', 'echo', 'stable');
+      const r = runDaemon('watch', 'watch-stable', '20ms');
+      expect(r.exitCode).toBe(0);
+      expect(r.stdout).toBe('done');
+      runDaemon('remove', 'watch-stable');
+    });
+
+    it('outputs "working" when bottom 100 captured lines change', async () => {
+      runDaemon(
+        'spawn',
+        'watch-changing',
+        'zsh',
+        '-lc',
+        'i=0; while [ $i -lt 50 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done; sleep 1',
+      );
+      await new Promise(r => setTimeout(r, 250));
+      const r = runDaemon('watch', 'watch-changing', '120ms');
+      expect(r.exitCode).toBe(0);
+      expect(r.stdout).toBe('working');
+      runDaemon('remove', 'watch-changing');
     });
   });
 

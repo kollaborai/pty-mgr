@@ -12,6 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `bun test` and the `bun run demo` smoke test (bin/pty-mgr.mjs demo ->
+      # runDemo in lib/pty-manager.mjs, which spawns a real `zsh` PTY session)
+      # both require zsh. ubuntu-latest does not guarantee it (not in the runner
+      # image installed-software list), so install it explicitly.
+      - name: Install zsh
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

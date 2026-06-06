@@ -5,3 +5,4 @@ dist/
 
 # platform binaries (CI copies these during publish)
 npm/*/pty-mgr
+demo/.pagent/
