@@ -290,6 +290,23 @@ describe('cli: with daemon', () => {
       expect(r.stdout).toBe('working');
       runDaemon('remove', 'watch-changing');
     });
+
+    it('outputs "working" when any globbed session capture changes', async () => {
+      runDaemon('remove', 'watch-glob-*');
+      runDaemon('spawn', 'watch-glob-stable', 'echo', 'stable');
+      runDaemon(
+        'spawn',
+        'watch-glob-changing',
+        'zsh',
+        '-lc',
+        'i=0; while [ $i -lt 50 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done; sleep 1',
+      );
+      await new Promise(r => setTimeout(r, 250));
+      const r = runDaemon('watch', 'watch-glob-*', '120ms');
+      expect(r.exitCode).toBe(0);
+      expect(r.stdout).toBe('working');
+      runDaemon('remove', 'watch-glob-*');
+    });
   });
 
   describe('aliases', () => {

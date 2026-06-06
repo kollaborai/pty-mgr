@@ -16,6 +16,36 @@ import {
 } from '../demo/duo.mjs';
 import { runRelay } from '../demo/relay.mjs';
 
+function adapterConfig({ codexRoot, claudeRoot, extraCodexRoot }) {
+  const adapters = {};
+  if (codexRoot) {
+    adapters.codex = {
+      roots: [codexRoot, extraCodexRoot].filter(Boolean),
+      sessionTimestampPaths: ['payload.timestamp', 'timestamp'],
+      assistant: {
+        where: {
+          type: 'response_item',
+          'payload.type': 'message',
+          'payload.role': 'assistant',
+        },
+        text: [{ array: 'payload.content', where: { type: 'output_text' }, path: 'text' }],
+      },
+    };
+  }
+  if (claudeRoot) {
+    adapters.claude = {
+      roots: [join(claudeRoot, '${projectKey}'), claudeRoot],
+      sessionTimestampPaths: ['timestamp'],
+      assistant: {
+        where: { type: 'assistant' },
+        complete: { 'message.stop_reason': 'end_turn' },
+        text: [{ array: 'message.content', where: { type: 'text' }, path: 'text' }],
+      },
+    };
+  }
+  return { adapters };
+}
+
 describe('demo log tailing', () => {
   it('background launchers bypass shell wrapper functions', () => {
     const root = mkdtempSync(join(tmpdir(), 'pagent-launch-'));
@@ -109,9 +139,9 @@ exit 0
         type: 'assistant',
         timestamp: '2026-06-06T20:00:00.000Z',
         uuid: 'a1',
-        stop_reason: 'end_turn',
         message: {
           role: 'assistant',
+          stop_reason: 'end_turn',
           content: [{ type: 'text', text: 'first reply' }],
         },
       }),
@@ -119,9 +149,9 @@ exit 0
         type: 'assistant',
         timestamp: '2026-06-06T20:00:01.000Z',
         uuid: 'a2',
-        stop_reason: 'end_turn',
         message: {
           role: 'assistant',
+          stop_reason: 'end_turn',
           content: [{ type: 'thinking', thinking: 'hidden' }],
         },
       }),
@@ -129,9 +159,9 @@ exit 0
         type: 'assistant',
         timestamp: '2026-06-06T20:00:02.000Z',
         uuid: 'a3',
-        stop_reason: 'end_turn',
         message: {
           role: 'assistant',
+          stop_reason: 'end_turn',
           content: [{ type: 'text', text: 'second reply' }],
         },
       }),
@@ -150,9 +180,9 @@ exit 0
         type: 'assistant',
         timestamp: '2026-06-06T20:00:00.000Z',
         uuid: 'old',
-        stop_reason: 'end_turn',
         message: {
           role: 'assistant',
+          stop_reason: 'end_turn',
           content: [{ type: 'text', text: 'old completed reply' }],
         },
       }),
@@ -160,9 +190,9 @@ exit 0
         type: 'assistant',
         timestamp: '2026-06-06T20:00:01.000Z',
         uuid: 'mid-tool',
-        stop_reason: 'tool_use',
         message: {
           role: 'assistant',
+          stop_reason: 'tool_use',
           content: [{ type: 'text', text: 'checking the repo before final answer' }],
         },
       }),
@@ -313,6 +343,22 @@ exit 0
     expect(result.text).toBe('reply body');
   });
 
+  it('requires an explicit adapter for each agent kind', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pagent-no-adapter-'));
+    const file = join(dir, 'claude.jsonl');
+    writeFileSync(file, JSON.stringify({
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'reply body' }],
+      },
+    }) + '\n');
+
+    expect(() => extractLastAssistantMessage(file, 'claude', '', { adapters: {} }))
+      .toThrow('missing adapter config for agent kind: claude');
+  });
+
   it('finds the newest transcript after launch time for each tool', () => {
     const root = mkdtempSync(join(tmpdir(), 'pagent-find-log-'));
     const codexRoot = join(root, 'codex', 'sessions');
@@ -335,12 +381,11 @@ exit 0
     utimesSync(newCodex, newTime, newTime);
     utimesSync(newClaude, newTime, newTime);
 
-    const config = {
-      logs: {
-        codex: { mainTranscripts: codexRoot, archivedTranscripts: join(root, 'missing') },
-        claudeCode: { projectTranscripts: claudeRoot },
-      },
-    };
+    const config = adapterConfig({
+      codexRoot,
+      claudeRoot,
+      extraCodexRoot: join(root, 'missing'),
+    });
 
     expect(findNewestTranscript({
       kind: 'codex',
@@ -379,11 +424,7 @@ exit 0
       kind: 'codex',
       cwd: '/tmp/pty-mgr-project',
       sinceMs: Date.parse('2026-06-06T20:00:00.000Z'),
-      config: {
-        logs: {
-          codex: { mainTranscripts: codexRoot },
-        },
-      },
+      config: adapterConfig({ codexRoot }),
     })).toBe(second);
   });
 
@@ -418,11 +459,7 @@ exit 0
       kind: 'codex',
       cwd: '/tmp/pty-mgr-project',
       sinceMs: Date.parse('2026-06-06T20:00:30.000Z'),
-      config: {
-        logs: {
-          codex: { mainTranscripts: codexRoot },
-        },
-      },
+      config: adapterConfig({ codexRoot }),
     })).toBe(launchedSession);
   });
 
@@ -453,12 +490,7 @@ exit 0
       timeoutMs: 1,
     }, {
       sendMessage: (target, text) => sent.push({ target, text }),
-      config: {
-        logs: {
-          codex: { mainTranscripts: codexRoot },
-          claudeCode: { projectTranscripts: join(root, 'claude', 'projects') },
-        },
-      },
+      config: adapterConfig({ codexRoot, claudeRoot: join(root, 'claude', 'projects') }),
     });
 
     expect(result.sent).toBe(true);
@@ -496,9 +528,9 @@ exit 0
       type: 'assistant',
       timestamp: '2026-06-06T20:00:01.000Z',
       uuid: 'claude-a1',
-      stop_reason: 'end_turn',
       message: {
         role: 'assistant',
+        stop_reason: 'end_turn',
         content: [{ type: 'text', text: 'I reviewed the codebase and found wrapper drift.' }],
       },
     }) + '\n');
@@ -531,12 +563,7 @@ exit 0
         watched.push({ session, interval });
         return 'done';
       },
-      config: {
-        logs: {
-          codex: { mainTranscripts: codexRoot },
-          claudeCode: { projectTranscripts: claudeRoot },
-        },
-      },
+      config: adapterConfig({ codexRoot, claudeRoot }),
     });
 
     expect(result.completed).toBe(true);
@@ -594,9 +621,9 @@ exit 0
       type: 'assistant',
       timestamp: '2026-06-06T20:00:01.000Z',
       uuid: 'claude-a1',
-      stop_reason: 'end_turn',
       message: {
         role: 'assistant',
+        stop_reason: 'end_turn',
         content: [{ type: 'text', text: 'Fresh review result.' }],
       },
     }) + '\n');
@@ -627,12 +654,7 @@ exit 0
     }, {
       sendMessage: (target, text) => sent.push({ target, text }),
       watchSession: () => 'done',
-      config: {
-        logs: {
-          codex: { mainTranscripts: codexRoot },
-          claudeCode: { projectTranscripts: claudeRoot },
-        },
-      },
+      config: adapterConfig({ codexRoot, claudeRoot }),
     });
 
     expect(result.completed).toBe(true);

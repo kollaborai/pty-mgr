@@ -49,13 +49,12 @@ Use existing sessions with the full script:
 Flow:
 
 1. `pduo` sends the task to Claude.
-2. `pduo` runs `p watch <claude-session> 4s` until Claude's bottom 100
-   captured lines are stable.
-3. `pduo` reads Claude's newest assistant response and sends it to Codex with:
-   `What should I fix first and how?`
+2. `pduo` runs `p watch <claude-session> <interval>` until Claude's bottom 100
+   captured lines are stable, waits the settle delay, then checks stability again.
+3. `pduo` reads Claude's newest completed assistant response and sends it to
+   Codex with: `What should I fix first and how?`
 4. Codex reviews Claude's findings and replies with direction.
-5. `pduo` runs `p watch <codex-session> 4s` until Codex's bottom 100
-   captured lines are stable.
+5. `pduo` runs `p watch <codex-session> <interval>` with the same settle check.
 6. `pduo` sends Codex's direction back to Claude with:
    `Do the work now. When finished, report what changed...`
 7. On the next Claude completion, `pduo` sends the result back to Codex with:
@@ -63,7 +62,7 @@ Flow:
 
 By default `pduo` runs one full Claude -> Codex -> Claude cycle. Use
 `--max-cycles N` to keep the loop going. Use `--watch-interval 10s` to change
-the stability interval.
+the stability interval, and `--settle-ms 1500` to change the post-watch delay.
 
 Inspect the latest parsed assistant response for one managed session:
 
@@ -82,8 +81,11 @@ Agent log parsing is driven by `wrap.config` adapters. Each adapter defines:
 - `roots`: JSONL transcript roots. Supports `${projectKey}`, `${cwd}`, and `${home}`.
 - `sessionTimestampPaths`: JSON paths used to match logs created after launch.
 - `assistant.where`: JSON path equality checks that identify assistant message rows.
+- `assistant.complete`: optional JSON path equality checks for completed rows.
 - `assistant.text`: JSON paths or filtered arrays that extract assistant text.
 
 After `p watch <session> <interval>` returns `done`, the relay scans the matched
-JSONL log backward from the bottom and sends the first assistant text row that
-matches the adapter. It does not require a hardcoded `final_answer` phase.
+JSONL log backward from the bottom and sends the first completed assistant text
+row that matches `assistant.where`, optional `assistant.complete`, and
+`assistant.text`.
+It does not require a hardcoded `final_answer` phase.

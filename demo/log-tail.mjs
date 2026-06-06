@@ -70,39 +70,8 @@ function renderTemplate(value, context) {
 
 function adapterForKind(kind, config) {
   const adapter = config.adapters?.[kind];
-  if (adapter) return adapter;
-
-  if (kind === 'codex') {
-    const codex = config.logs?.codex || {};
-    return {
-      roots: [codex.mainTranscripts, codex.archivedTranscripts].filter(Boolean),
-      sessionTimestampPaths: ['payload.timestamp', 'timestamp'],
-      assistant: {
-        where: {
-          type: 'response_item',
-          'payload.type': 'message',
-          'payload.role': 'assistant',
-        },
-        text: [{ array: 'payload.content', where: { type: 'output_text' }, path: 'text' }],
-      },
-      stripPatterns: ['\\n*<oai-mem-citation>[\\s\\S]*?</oai-mem-citation>\\s*$'],
-    };
-  }
-
-  if (kind === 'claude') {
-    const root = config.logs?.claudeCode?.projectTranscripts;
-    return {
-      roots: root ? [join(root, '${projectKey}'), root] : [],
-      sessionTimestampPaths: ['timestamp'],
-      assistant: {
-        where: { type: 'assistant' },
-        complete: { stop_reason: 'end_turn' },
-        text: [{ array: 'message.content', where: { type: 'text' }, path: 'text' }],
-      },
-    };
-  }
-
-  throw new Error(`unknown agent kind: ${kind}`);
+  if (!adapter) throw new Error(`missing adapter config for agent kind: ${kind}`);
+  return adapter;
 }
 
 function transcriptStartedAtMs(file, adapter) {
