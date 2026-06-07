@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.11 - 2026-06-06
+
+### Fixed
+
+- Made the standalone `p demo` command exit explicitly after cleanup so
+  linux PTY handles cannot keep Bun alive after the demo prints complete.
+
 ## 1.2.10 - 2026-06-06
 
 ### Fixed
