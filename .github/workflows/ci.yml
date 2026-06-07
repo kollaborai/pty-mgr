@@ -13,9 +13,9 @@ jobs:
       - uses: actions/checkout@v4
 
       # `bun test` and the `bun run demo` smoke test (bin/pty-mgr.mjs demo ->
-      # runDemo in lib/pty-manager.mjs, which spawns a real `zsh` PTY session)
-      # both require zsh. ubuntu-latest does not guarantee it (not in the runner
-      # image installed-software list), so install it explicitly.
+      # runDemo in lib/pty-manager.mjs, which spawns `zsh` inside a PTY) both
+      # require zsh. ubuntu-latest does not guarantee it (not in the runner image
+      # installed-software list), so install it explicitly.
       - name: Install zsh
         run: sudo apt-get update && sudo apt-get install -y zsh
 
@@ -29,7 +29,7 @@ jobs:
         run: bun test
 
       - name: Smoke test
-        run: bun run demo
+        run: timeout 45s bun run demo
 
       - name: Build check
         run: bun build bin/pty-mgr.mjs --compile --outfile /tmp/pty-mgr-ci

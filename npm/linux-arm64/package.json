@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr-linux-arm64",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "pty-mgr binary for Linux arm64",
   "os": [
     "linux"

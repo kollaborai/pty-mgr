@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.10 - 2026-06-06
+
+### Fixed
+
+- Replaced the demo smoke test's interactive shell prompt dependency with a
+  deterministic scripted PTY shell reader.
+- Added a CI timeout around the demo smoke step so future PTY hangs fail loudly
+  instead of parking the workflow.
+
 ## 1.2.9 - 2026-06-06
 
 ### Fixed
