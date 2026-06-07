@@ -101,16 +101,6 @@ describe('cli: no daemon error', () => {
   });
 });
 
-describe('cli: demo', () => {
-  it('runs the built-in smoke demo to completion', () => {
-    const r = run('demo');
-    expect(r.exitCode).toBe(0);
-    expect(r.stdout).toContain('hello-from-pty');
-    expect(r.stdout).toContain('MARKER_42');
-    expect(r.stdout).toContain('--- demo complete ---');
-  }, 10000);
-});
-
 describe('cli: flow', () => {
   it('lists configured flows from an explicit config file', () => {
     const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-flow-cli-'));

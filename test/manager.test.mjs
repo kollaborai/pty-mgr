@@ -438,13 +438,9 @@ describe('PtyManager', () => {
 
   describe('WAITFOREXIT', () => {
     it('waitForExit resolves when process exits', async () => {
-      mgr.spawn('wait-exit', 'zsh', []);
+      mgr.spawn('wait-exit', 'zsh', ['-lc', 'sleep 0.2']);
 
-      const timer = setTimeout(() => {
-        mgr.sendKeys('wait-exit', 'exit\r');
-      }, 200);
-
-      await mgr.waitForExit('wait-exit', 5000).finally(() => clearTimeout(timer));
+      await mgr.waitForExit('wait-exit', 5000);
       expect(mgr.get('wait-exit').exited).toBe(true);
     });
 

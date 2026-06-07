@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.7 - 2026-06-06
+
+### Fixed
+
+- Moved the demo smoke check out of the concurrent `bun test` suite; CI still
+  runs it as its own dedicated step.
+- Made `waitForExit` tests use a self-exiting PTY command instead of sending
+  `exit` into an interactive shell before the prompt is ready.
+
 ## 1.2.6 - 2026-06-06
 
 ### Fixed
