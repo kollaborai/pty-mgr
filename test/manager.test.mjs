@@ -434,6 +434,14 @@ describe('PtyManager', () => {
       await mgr.waitFor('string-pattern', /FINDME/, 3000).finally(() => clearTimeout(timer));
       expect(true).toBe(true);
     });
+
+    it('waitFor resolves from already-rendered output', async () => {
+      mgr.spawn('fast-output', 'zsh', ['-fc', 'echo FAST_MATCH']);
+
+      await mgr.waitForExit('fast-output', 3000);
+      const line = await mgr.waitFor('fast-output', /FAST_MATCH/, 3000);
+      expect(line).toContain('FAST_MATCH');
+    });
   });
 
   describe('WAITFOREXIT', () => {

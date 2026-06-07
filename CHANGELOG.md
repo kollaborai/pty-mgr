@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.9 - 2026-06-06
+
+### Fixed
+
+- Made `waitFor` poll the rendered screen while listening for data so fast
+  command output cannot be missed between spawn and listener timing.
+- Made the demo smoke test exit its interactive shell cleanly and verify `kill`
+  with a separate disposable process so CI cannot hang on a lingering PTY.
+
 ## 1.2.8 - 2026-06-06
 
 ### Fixed
