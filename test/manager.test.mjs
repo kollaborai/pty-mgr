@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { PtyManager, validateSessionName, buildSafeEnv, SAFE_ENV_KEYS } from '../lib/pty-manager.mjs';
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 describe('PtyManager', () => {
   let mgr;
 
@@ -63,7 +65,7 @@ describe('PtyManager', () => {
       expect(mgr.has('kill-test')).toBe(true);
 
       mgr.kill('kill-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       expect(mgr.has('kill-test')).toBe(true);
       const session = mgr.get('kill-test');
@@ -74,7 +76,7 @@ describe('PtyManager', () => {
     it('kill sets exited=true and populates exitCode', async () => {
       mgr.spawn('exit-code-test', 'zsh', []);
       mgr.kill('exit-code-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       const session = mgr.get('exit-code-test');
       expect(session.exited).toBe(true);
@@ -87,7 +89,7 @@ describe('PtyManager', () => {
       expect(mgr.has('remove-test')).toBe(true);
 
       mgr.remove('remove-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       expect(mgr.has('remove-test')).toBe(false);
       expect(() => mgr.get('remove-test')).toThrow('not found');
@@ -137,7 +139,7 @@ describe('PtyManager', () => {
     it('isAlive returns false for dead session', async () => {
       mgr.spawn('dead-test', 'zsh', []);
       mgr.kill('dead-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
       expect(mgr.isAlive('dead-test')).toBe(false);
     });
   });
@@ -145,10 +147,10 @@ describe('PtyManager', () => {
   describe('CAPTURE', () => {
     it('capture returns rendered output after echo', async () => {
       mgr.spawn('cap-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       mgr.sendKeys('cap-test', 'echo hello world\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const output = mgr.capture('cap-test');
       expect(output).toContain('hello world');
@@ -156,14 +158,14 @@ describe('PtyManager', () => {
 
     it('capture with tailLines returns only last N lines', async () => {
       mgr.spawn('tail-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       mgr.sendKeys('tail-test', 'echo line1\r');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
       mgr.sendKeys('tail-test', 'echo line2\r');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
       mgr.sendKeys('tail-test', 'echo line3\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const full = mgr.capture('tail-test');
       const tail = mgr.capture('tail-test', 2);
@@ -175,16 +177,16 @@ describe('PtyManager', () => {
 
     it('capture on dead session returns last screen state', async () => {
       mgr.spawn('dead-cap-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       mgr.sendKeys('dead-cap-test', 'echo final words\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const beforeKill = mgr.capture('dead-cap-test');
       expect(beforeKill).toContain('final words');
 
       mgr.kill('dead-cap-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       const afterKill = mgr.capture('dead-cap-test');
       expect(afterKill).toContain('final words');
@@ -194,10 +196,10 @@ describe('PtyManager', () => {
   describe('SENDKEYS', () => {
     it('sendKeys delivers text to process', async () => {
       mgr.spawn('send-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       mgr.sendKeys('send-test', 'echo test123\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const output = mgr.capture('send-test');
       expect(output).toContain('test123');
@@ -206,7 +208,7 @@ describe('PtyManager', () => {
     it('sendKeys on dead session throws', async () => {
       mgr.spawn('dead-send-test', 'zsh', []);
       mgr.kill('dead-send-test');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       expect(() => mgr.sendKeys('dead-send-test', 'echo test\r'))
         .toThrow('exited');
@@ -214,11 +216,11 @@ describe('PtyManager', () => {
 
     it('\\r sends enter, new prompt appears', async () => {
       mgr.spawn('enter-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       const before = mgr.capture('enter-test');
       mgr.sendKeys('enter-test', 'echo enter-test\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const after = mgr.capture('enter-test');
       expect(after).toContain('enter-test');
@@ -227,10 +229,10 @@ describe('PtyManager', () => {
 
     it('sendKeys writes special characters', async () => {
       mgr.spawn('special-test', 'zsh', []);
-      await new Promise(r => setTimeout(r, 300));
+      await sleep(300);
 
       mgr.sendKeys('special-test', 'echo "tab\there"\r');
-      await new Promise(r => setTimeout(r, 500));
+      await sleep(500);
 
       const output = mgr.capture('special-test');
       expect(output).toContain('tab');
@@ -323,7 +325,7 @@ describe('PtyManager', () => {
       mgr.spawn('dead-sess', 'zsh', []);
 
       mgr.kill('dead-sess');
-      await new Promise(r => setTimeout(r, 200));
+      await sleep(200);
 
       const sessions = mgr.list();
       const alive = sessions.find(s => s.name === 'alive-sess');
@@ -361,14 +363,16 @@ describe('PtyManager', () => {
       mgr.spawn('data-event', 'zsh', []);
       const session = mgr.get('data-event');
 
-      const got = await new Promise((resolve) => {
+      const gotPromise = new Promise((resolve) => {
         const handler = (data) => {
           session.events.removeListener('data', handler);
           resolve(data);
         };
         session.events.on('data', handler);
-        setTimeout(() => mgr.sendKeys('data-event', 'echo test\r'), 300);
       });
+      await sleep(300);
+      mgr.sendKeys('data-event', 'echo test\r');
+      const got = await gotPromise;
       expect(typeof got).toBe('string');
     });
 
@@ -376,10 +380,12 @@ describe('PtyManager', () => {
       mgr.spawn('exit-event', 'zsh', []);
       const session = mgr.get('exit-event');
 
-      const got = await new Promise((resolve) => {
+      const gotPromise = new Promise((resolve) => {
         session.events.on('exit', resolve);
-        setTimeout(() => mgr.kill('exit-event'), 100);
       });
+      await sleep(100);
+      mgr.kill('exit-event');
+      const got = await gotPromise;
       // exit event payload is {exitCode, signal}
       expect(got).toBeDefined();
       expect(typeof got.exitCode).toBe('number');
@@ -399,11 +405,11 @@ describe('PtyManager', () => {
     it('waitFor resolves when pattern appears', async () => {
       mgr.spawn('wait-test', 'zsh', []);
 
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         mgr.sendKeys('wait-test', 'echo MATCH_THIS\r');
       }, 200);
 
-      await mgr.waitFor('wait-test', /MATCH_THIS/, 2000);
+      await mgr.waitFor('wait-test', /MATCH_THIS/, 2000).finally(() => clearTimeout(timer));
       expect(true).toBe(true);
     });
 
@@ -421,11 +427,11 @@ describe('PtyManager', () => {
     it('waitFor with string pattern works', async () => {
       mgr.spawn('string-pattern', 'zsh', []);
 
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         mgr.sendKeys('string-pattern', 'echo FINDME\r');
       }, 200);
 
-      await mgr.waitFor('string-pattern', /FINDME/, 3000);
+      await mgr.waitFor('string-pattern', /FINDME/, 3000).finally(() => clearTimeout(timer));
       expect(true).toBe(true);
     });
   });
@@ -434,11 +440,11 @@ describe('PtyManager', () => {
     it('waitForExit resolves when process exits', async () => {
       mgr.spawn('wait-exit', 'zsh', []);
 
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         mgr.sendKeys('wait-exit', 'exit\r');
       }, 200);
 
-      await mgr.waitForExit('wait-exit', 5000);
+      await mgr.waitForExit('wait-exit', 5000).finally(() => clearTimeout(timer));
       expect(mgr.get('wait-exit').exited).toBe(true);
     });
 

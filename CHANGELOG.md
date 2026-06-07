@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.6 - 2026-06-06
+
+### Fixed
+
+- Fixed a CI-only test race where delayed PTY test callbacks could fire after
+  test cleanup destroyed their sessions.
+- Supersedes the v1.2.5 tag for the same agent-flow feature set with a stable
+  CI run.
+
 ## 1.2.5 - 2026-06-06
 
 ### Added
