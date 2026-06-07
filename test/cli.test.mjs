@@ -111,6 +111,30 @@ describe('cli: demo', () => {
   }, 10000);
 });
 
+describe('cli: flow', () => {
+  it('lists configured flows from an explicit config file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-flow-cli-'));
+    const configPath = join(dir, 'pty-mgr.config.json');
+    writeFileSync(configPath, JSON.stringify({
+      adapters: {},
+      flows: {
+        spec: {},
+        review: {},
+      },
+    }));
+
+    const r = run('flow', 'list', '--config', configPath);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.split('\n')).toEqual(['spec', 'review']);
+  });
+
+  it('requires --task for flow run before starting agents', () => {
+    const r = run('flow', 'run', 'spec');
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain('flow run requires --task <text>');
+  });
+});
+
 describe('cli: setup', () => {
   it('writes selected wrappers and exits cleanly', () => {
     const home = mkdtempSync(join(tmpdir(), 'pty-mgr-setup-'));
@@ -306,6 +330,19 @@ describe('cli: with daemon', () => {
       expect(r.exitCode).toBe(0);
       expect(r.stdout).toBe('working');
       runDaemon('remove', 'watch-glob-*');
+    });
+  });
+
+  describe('@ in payload', () => {
+    it('delivers send text starting with @ (not parsed as daemon selector)', async () => {
+      runDaemon('remove', 'at-payload');
+      runDaemon('spawn', 'at-payload', 'cat');
+      await new Promise(r => setTimeout(r, 200));
+      runDaemon('send', 'at-payload', '@everyone');
+      await new Promise(r => setTimeout(r, 600));
+      const r = runDaemon('c', 'at-payload');
+      expect(r.stdout).toContain('@everyone');
+      runDaemon('remove', 'at-payload');
     });
   });
 

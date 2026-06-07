@@ -97,6 +97,61 @@ p kill refa*
 p stop
 ```
 
+## Agent Flows
+
+`p flow` runs configurable agent-collaboration workflows. The workflow lives in
+`pty-mgr.config.json`; the binary provides the PTY/session/log plumbing.
+
+```
+p daemon
+p flow list
+p flow run spec-writer --task "Create a spec for the auth rewrite."
+p flow run review-loop --task "Review this repo." --max-cycles 2
+```
+
+A flow has:
+
+- `adapters`: how to launch each CLI and parse sent user + assistant logs.
+- `agents`: named participants in a workflow, each using an adapter kind.
+- `start`: which agent receives the initial task.
+- `turns`: routing and steering templates between agents.
+
+Useful run flags:
+
+- `--goal <text>`: separate long-running goal text from the initial task.
+- `--max-cycles <n>`: override the workflow's configured cycle count.
+- `--watch-interval <duration>`: compare bottom-100-line captures after this
+  interval (`4s`, `1000ms`, or a bare millisecond value).
+- `--settle-ms <n>`: wait after a stable capture before reading the transcript.
+- `--timeout-ms <n>`: return incomplete instead of waiting forever.
+
+Example steering:
+
+```json
+{
+  "from": "author",
+  "to": "reviewer",
+  "append": "Based on this, what gaps do you see and what should change next?"
+}
+```
+
+Supported template variables:
+
+- `{task}`: the initial task passed on the CLI.
+- `{goal}`: `--goal` if provided, otherwise the task.
+- `{lastMessage}`: the completed assistant response being relayed.
+- `{cycle}`: current cycle number.
+- `{from}` / `{to}`: source and target agent names.
+
+The shipped `pty-mgr.config.json` includes `spec-writer` and `review-loop`
+examples for Claude/Codex. Add new adapters for Gemini, OpenCode, or another
+CLI by defining where that tool stores JSONL logs and how to extract the latest
+sent user message and completed assistant message.
+
+Flow transcript lookup is bound to the exact user prompt sent to the session,
+then assistant extraction starts after that prompt. That prevents one active
+agent from accidentally relaying another agent's newer log.
+
 ### CLI Aliases
 
 | Short | Full    | Short | Full    |

@@ -1,0 +1,156 @@
+{
+  "adapters": {
+    "claude": {
+      "command": "claude",
+      "defaultArgs": ["--dangerously-skip-permissions"],
+      "roots": [
+        "${home}/.claude/projects/${projectKey}",
+        "${home}/.claude/projects"
+      ],
+      "sessionTimestampPaths": ["timestamp"],
+      "assistant": {
+        "where": {
+          "type": "assistant"
+        },
+        "complete": {
+          "message.stop_reason": "end_turn"
+        },
+        "text": [
+          {
+            "array": "message.content",
+            "where": {
+              "type": "text"
+            },
+            "path": "text"
+          }
+        ]
+      },
+      "user": {
+        "where": {
+          "type": "user",
+          "message.role": "user"
+        },
+        "text": [
+          {
+            "path": "message.content"
+          },
+          {
+            "array": "message.content",
+            "where": {
+              "type": "text"
+            },
+            "path": "text"
+          }
+        ]
+      }
+    },
+    "codex": {
+      "command": "codex",
+      "defaultArgs": ["--yolo"],
+      "roots": [
+        "${home}/.codex/sessions",
+        "${home}/.codex/archived_sessions"
+      ],
+      "sessionTimestampPaths": ["payload.timestamp", "timestamp"],
+      "assistant": {
+        "where": {
+          "type": "response_item",
+          "payload.type": "message",
+          "payload.role": "assistant"
+        },
+        "text": [
+          {
+            "array": "payload.content",
+            "where": {
+              "type": "output_text"
+            },
+            "path": "text"
+          }
+        ]
+      },
+      "user": {
+        "where": {
+          "type": "response_item",
+          "payload.type": "message",
+          "payload.role": "user"
+        },
+        "text": [
+          {
+            "array": "payload.content",
+            "where": {
+              "type": "input_text"
+            },
+            "path": "text"
+          }
+        ]
+      },
+      "stripPatterns": [
+        "\\n*<oai-mem-citation>[\\s\\S]*?</oai-mem-citation>\\s*$"
+      ]
+    }
+  },
+  "flows": {
+    "spec-writer": {
+      "agents": {
+        "author": {
+          "kind": "claude",
+          "base": "flow-author"
+        },
+        "reviewer": {
+          "kind": "codex",
+          "base": "flow-reviewer"
+        }
+      },
+      "start": {
+        "to": "author",
+        "template": "{task}"
+      },
+      "turns": [
+        {
+          "from": "author",
+          "to": "reviewer",
+          "append": "Based on this, what gaps do you see and what should change next?"
+        },
+        {
+          "from": "reviewer",
+          "to": "author",
+          "append": "Use this feedback to continue toward the goal. Report the updated result."
+        }
+      ],
+      "maxCycles": 1,
+      "watchInterval": "10s",
+      "settleMs": 1500
+    },
+    "review-loop": {
+      "agents": {
+        "first": {
+          "kind": "claude",
+          "base": "flow-first"
+        },
+        "second": {
+          "kind": "codex",
+          "base": "flow-second"
+        }
+      },
+      "start": {
+        "to": "first",
+        "template": "{task}"
+      },
+      "turns": [
+        {
+          "from": "first",
+          "to": "second",
+          "append": "Based on that information, what do you think should happen next?"
+        },
+        {
+          "from": "second",
+          "to": "first",
+          "append": "Continue from this feedback and keep the goal in mind: {goal}"
+        }
+      ],
+      "maxCycles": 1,
+      "watchInterval": "10s",
+      "settleMs": 1500
+    }
+  }
+}

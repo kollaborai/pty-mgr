@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, mkdtempSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -217,6 +217,57 @@ describe('daemon protocol', () => {
       });
       expect(res.ok).toBe(true);
       expect(res.name).toMatch(/^my\.project-\d+$/);
+    });
+
+    it('does not execute shell metacharacters in wrap args', async () => {
+      // Command substitution fires inside double quotes (the old
+      // `a.includes(" ") ? '"'+a+'"'` quoting) but is inert inside the single
+      // quotes shellQuote() now produces. `MARKER_` prints either way, and the
+      // substitution resolves *before* echo prints -- so once MARKER_ is on
+      // screen we can assert deterministically (no arbitrary sleep race) that
+      // the sentinel was NOT created.
+      const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-wrap-inject-'));
+      const sentinel = join(dir, 'pwned');
+      const res = await sendCmd({
+        cmd: 'wrap',
+        args: { cmd: '/bin/echo', args: [`MARKER_$(touch ${sentinel})`], cwd: dir, base: 'inject' },
+      });
+      expect(res.ok).toBe(true);
+
+      let printed = false;
+      for (let i = 0; i < 50; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 20 } });
+        if (cap.ok && cap.output && cap.output.includes('MARKER_')) { printed = true; break; }
+      }
+      expect(printed).toBe(true);
+      expect(existsSync(sentinel)).toBe(false);
+    });
+
+    it('filters non-whitelisted client env from wrap', async () => {
+      // wrap should inherit the daemon env but drop arbitrary client-supplied
+      // vars. PATH (whitelisted) always prints; PTYMGR_EVIL_INJECT (not) must
+      // never reach the child. Poll until env has printed (PATH= visible).
+      const res = await sendCmd({
+        cmd: 'wrap',
+        args: {
+          cmd: '/usr/bin/env',
+          cwd: '/tmp',
+          base: 'envfilter',
+          env: { PTYMGR_EVIL_INJECT: 'pwned' },
+        },
+      });
+      expect(res.ok).toBe(true);
+
+      let output = '';
+      for (let i = 0; i < 50; i++) {
+        await new Promise(r => setTimeout(r, 200));
+        const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 200 } });
+        output = (cap.ok && cap.output) || '';
+        if (output.includes('PATH=')) break;
+      }
+      expect(output).toContain('PATH=');
+      expect(output).not.toContain('PTYMGR_EVIL_INJECT');
     });
   });
 

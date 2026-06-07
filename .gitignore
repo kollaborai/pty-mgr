@@ -2,7 +2,7 @@ node_modules/
 dist/
 *.sock
 .DS_Store
+demo/.pagent/
 
 # platform binaries (CI copies these during publish)
 npm/*/pty-mgr
-demo/.pagent/

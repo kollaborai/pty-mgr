@@ -8,7 +8,7 @@ pty-mgr is a PTY session manager for programmatic terminal control. It spawns
 commands in real pseudo-terminals, emulates the screen buffer with xterm, and
 exposes session management via a daemon over Unix sockets.
 
-Single-file architecture in `lib/pty-manager.mjs` (~1400 lines). Contains:
+Single-file architecture in `lib/pty-manager.mjs` (~2500 lines). Contains:
 - `PtySession` class: wraps a `Bun.spawn({ terminal })` process + `@xterm/headless`
   Terminal. Bun's native PTY allocates the pseudo-terminal directly (no Python, no
   native addons). The xterm emulator parses escape codes so `capture()` returns
@@ -18,6 +18,8 @@ Single-file architecture in `lib/pty-manager.mjs` (~1400 lines). Contains:
 - Daemon: Unix socket server (JSON-over-newline protocol). Holds sessions persistently.
   Socket at `~/.pty-manager/<name>.sock`. Supports `attach` (raw streaming mode).
 - CLI: full command parser with aliases. Entry point `bin/pty-mgr` (also `p`).
+- Flow engine: configurable multi-agent workflows driven by
+  `pty-mgr.config.json` adapters and turn steering templates.
 
 Requires Bun runtime (not Node.js). Compiles to a single self-contained binary
 via `bun build --compile`.
@@ -29,9 +31,10 @@ bun install                          # install deps (@xterm/headless)
 bun bin/pty-mgr.mjs demo             # self-test, no daemon needed
 bun run demo                         # same
 bun run build                        # compile to dist/pty-mgr (single binary)
+bun test                             # run unit + daemon + flow tests
 ```
 
-No test framework is set up. The `demo` command is the current smoke test.
+The `demo` command is a smoke test; `bun test` is the regression suite.
 
 ## CLI Usage (after `npm link` or direct)
 
@@ -45,6 +48,8 @@ p attach <name>                      # interactive mode (ctrl-] detach)
 p list                               # list sessions
 p kill <name|all|glob*>              # kill sessions
 p stop [all]                         # stop daemon(s)
+p flow list                          # list configured agent workflows
+p flow run <name> --task <text>      # run a configured agent workflow
 ```
 
 Aliases: n/new=spawn, s=send, c/cap=capture, k=kill, l/ls=list,
@@ -61,7 +66,25 @@ a=attach, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   connection to raw streaming mode (bidirectional).
 - Session names support glob patterns for bulk operations: `kill refa*`, `capture all`.
 - `cap-on-send` config: when enabled, every `send` command returns a capture after 1s delay.
-- Env var whitelist in daemon spawn to prevent injection (PATH, HOME, API keys, etc).
+- Env policy is user-shell-first, not a sandbox. Every session inherits the
+  daemon's own environment (`...process.env`), so children see whatever env the
+  daemon was started with (PATH, API keys, etc). The `SAFE_ENV_KEYS` whitelist
+  (`buildSafeEnv`) only filters *client-supplied* env overlays sent over the
+  socket — on both `spawn` and `wrap` — so a socket client can't inject
+  arbitrary vars (LD_PRELOAD, DYLD_INSERT_LIBRARIES, …). It does not restrict
+  inherited env.
+- `wrap` shells out via `zsh -lic`; every cmd/arg token is single-quoted with
+  `shellQuote()` so shell metacharacters in args are passed literally (no
+  command injection).
+- Daemon selector (`@name` / `--daemon <name>`) is parsed by `splitDaemonArgs`
+  from the front of argv only — leading token, or trailing a leading
+  `daemon`/`d` command. Later `@`-tokens are preserved as data so payloads like
+  `send agent "@everyone …"` survive.
+- `p flow` is the agent-orchestration feature. All agent-specific behavior
+  belongs in `pty-mgr.config.json`: adapters define how CLI transcripts are
+  parsed for sent user messages and completed assistant messages; flows define
+  agents, turn routing, and steering text. Do not hardcode review/patch modes
+  in code.
 - Socket permissions set to 0o600 (owner-only).
 - ESM throughout (`"type": "module"` in package.json).
 

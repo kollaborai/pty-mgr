@@ -3,7 +3,11 @@ import {
   validateSessionName,
   buildSafeEnv,
   SAFE_ENV_KEYS,
+  splitDaemonArgs,
+  shellQuote,
 } from "../lib/pty-manager.mjs";
+
+const DEFAULT_DAEMON = process.env.PTY_DAEMON || "default";
 
 describe("validateSessionName", () => {
   it("accepts simple alphanumeric names", () => {
@@ -209,6 +213,83 @@ describe("buildSafeEnv", () => {
     for (const key of Object.keys(result)) {
       expect(SAFE_ENV_KEYS).toContain(key);
     }
+  });
+});
+
+describe("splitDaemonArgs", () => {
+  it("preserves a later @-token as data (the send-payload bug)", () => {
+    const { daemon, args } = splitDaemonArgs(["send", "agent", "@everyone deploy now"]);
+    expect(daemon).toBe(DEFAULT_DAEMON);
+    expect(args).toEqual(["send", "agent", "@everyone deploy now"]);
+  });
+
+  it("preserves a bare @-token argument to a non-daemon command", () => {
+    const { daemon, args } = splitDaemonArgs(["send", "agent", "@everyone"]);
+    expect(daemon).toBe(DEFAULT_DAEMON);
+    expect(args).toEqual(["send", "agent", "@everyone"]);
+  });
+
+  it("consumes a leading @name selector", () => {
+    const { daemon, args } = splitDaemonArgs(["@proj", "spawn", "x"]);
+    expect(daemon).toBe("proj");
+    expect(args).toEqual(["spawn", "x"]);
+  });
+
+  it("consumes a leading --daemon <name> selector", () => {
+    const { daemon, args } = splitDaemonArgs(["--daemon", "proj", "list"]);
+    expect(daemon).toBe("proj");
+    expect(args).toEqual(["list"]);
+  });
+
+  it("consumes @name trailing a leading 'daemon' command", () => {
+    const { daemon, args } = splitDaemonArgs(["daemon", "@proj"]);
+    expect(daemon).toBe("proj");
+    expect(args).toEqual(["daemon"]);
+  });
+
+  it("consumes @name trailing the 'd' alias", () => {
+    const { daemon, args } = splitDaemonArgs(["d", "@proj"]);
+    expect(daemon).toBe("proj");
+    expect(args).toEqual(["d"]);
+  });
+
+  it("consumes --daemon <name> trailing a leading 'daemon' command", () => {
+    const { daemon, args } = splitDaemonArgs(["daemon", "--daemon", "proj"]);
+    expect(daemon).toBe("proj");
+    expect(args).toEqual(["daemon"]);
+  });
+
+  it("does NOT treat @name after a non-daemon command as a selector", () => {
+    const { daemon, args } = splitDaemonArgs(["spawn", "@weird"]);
+    expect(daemon).toBe(DEFAULT_DAEMON);
+    expect(args).toEqual(["spawn", "@weird"]);
+  });
+
+  it("returns empty args for no tokens", () => {
+    const { daemon, args } = splitDaemonArgs([]);
+    expect(daemon).toBe(DEFAULT_DAEMON);
+    expect(args).toEqual([]);
+  });
+});
+
+describe("shellQuote", () => {
+  it("wraps a plain token in single quotes", () => {
+    expect(shellQuote("plain")).toBe("'plain'");
+  });
+
+  it("quotes spaces", () => {
+    expect(shellQuote("a b c")).toBe("'a b c'");
+  });
+
+  it("makes shell metacharacters literal", () => {
+    expect(shellQuote("a;b")).toBe("'a;b'");
+    expect(shellQuote("$(touch x)")).toBe("'$(touch x)'");
+    expect(shellQuote("`id`")).toBe("'`id`'");
+    expect(shellQuote("a|b&c")).toBe("'a|b&c'");
+  });
+
+  it("escapes embedded single quotes", () => {
+    expect(shellQuote("it's")).toBe("'it'\\''s'");
   });
 });
 
