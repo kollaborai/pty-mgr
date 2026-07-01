@@ -151,6 +151,37 @@
       "maxCycles": 1,
       "watchInterval": "10s",
       "settleMs": 1500
+    },
+    "code-review": {
+      "agents": {
+        "writer": {
+          "kind": "codex",
+          "base": "flow-writer"
+        },
+        "reviewer": {
+          "kind": "claude",
+          "base": "flow-reviewer"
+        }
+      },
+      "start": {
+        "to": "writer",
+        "template": "{task}"
+      },
+      "turns": [
+        {
+          "from": "writer",
+          "to": "reviewer",
+          "append": "The other agent just implemented the task above in this repository. Review the ACTUAL code on disk, not this summary. Run `git status` and `git diff` to see the changes (or `git show HEAD` / `git diff HEAD~1` if they were already committed), then read the changed and new files. Check for correctness bugs, missing edge cases, security issues, and anything that does not satisfy the task. Give specific, actionable feedback as a short numbered list, each item referencing file:line. If the implementation is solid, say so explicitly."
+        },
+        {
+          "from": "reviewer",
+          "to": "writer",
+          "append": "The above is code review feedback on the implementation you just wrote. Apply every fix you agree with directly in the code, and briefly note anything you are intentionally skipping and why. Then report the final state. Original task: {goal}"
+        }
+      ],
+      "maxCycles": 1,
+      "watchInterval": "10s",
+      "settleMs": 1500
     }
   }
 }

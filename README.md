@@ -83,6 +83,12 @@ p send agent-1 "fix the login bug"
 # capture rendered screen (last 20 lines)
 p capture agent-1 20
 
+# send raw text with no trailing enter
+p send agent-1 --raw "partial input"
+
+# poll whether a session is still working (diffs two captures)
+p watch agent-1 4s
+
 # attach interactively (ctrl-] to detach)
 p attach agent-1
 
@@ -93,9 +99,59 @@ p rename agent-1 agent-refactored
 p capture all 50
 p kill refa*
 
+# daemon status + config
+p status
+
 # stop daemon
 p stop
 ```
+
+## Command Reference
+
+Every command (`p --help`):
+
+| Command | Description |
+|---------|-------------|
+| `p daemon` | Start daemon (forks to background) |
+| `p daemon @myproject` | Named daemon (isolated sessions) |
+| `p status` | Daemon info + config |
+| `p config` | Show current config |
+| `p config screen 100x50` | Set default terminal size |
+| `p config cap-on-send on\|off` | Return a capture with every send |
+| `p config send-delay <ms>` | Delay before enter (default 1000) |
+| `p spawn <name> [cmd] [args...]` | Create session (default `zsh`) |
+| `p wrap [cmd] [args...]` | Spawn with auto-incrementing cwd name |
+| `p attach <name>` | Interactive mode (ctrl-] detach) |
+| `p send <name> <text>` | Send text + enter |
+| `p send <name> --raw <text>` | Send text as-is (no enter) |
+| `p capture <name> [lines]` | Capture rendered screen |
+| `p capture all [lines]` | Capture from all sessions |
+| `p capture <glob*> [lines]` | Capture matching sessions |
+| `p watch <name> [interval]` | Diff two bottom-100 captures → `done`/`working` |
+| `p list` | List all sessions |
+| `p alive <name>` | Check if a session is alive |
+| `p info <name>` | Session details |
+| `p kill <name>` | Kill session |
+| `p kill all` | Kill all sessions |
+| `p kill <glob*>` | Kill matching sessions |
+| `p rename <old> <new>` | Rename a session |
+| `p remove <name\|all\|glob*>` | Kill + remove |
+| `p log <name> on [jsonl\|raw\|rendered]` | Start logging |
+| `p log <name> off` | Stop logging |
+| `p spawn <name> --log [cmd]` | Spawn with logging (jsonl) |
+| `p stop` | Stop current daemon |
+| `p stop all` | Stop all daemons |
+| `p setup` | Wrap CLI tools (claude, etc.) |
+| `p flow list [--config file]` | List configured agent workflows |
+| `p flow run <name> --task <text>` | Run a configured agent workflow |
+| `p tg <message>` | Send a Telegram notification |
+| `p tg <message> --reply [--timeout N]` | Send and block for a reply |
+| `p demo` | Run self-test (no daemon needed) |
+
+`p watch <name> [interval]` captures the bottom 100 lines, waits `interval`
+(default `4s`; accepts `4s`, `1000ms`, or a bare millisecond value), captures
+again, and prints `done` if the screen is unchanged or `working` if it moved —
+a cheap idle check for polling long-running agents.
 
 ## Agent Flows
 
@@ -107,7 +163,14 @@ p daemon
 p flow list
 p flow run spec-writer --task "Create a spec for the auth rewrite."
 p flow run review-loop --task "Review this repo." --max-cycles 2
+
+# one agent implements, another reviews the real git diff, the first revises
+p flow run code-review --task "Add rate limiting to the /login route" --cwd ~/dev/myapp
 ```
+
+Both agents in a flow launch in the same working directory (`--cwd`, or wherever
+you run the command), so a reviewer agent can open the actual files the writer
+produced — not just react to its chat summary.
 
 A flow has:
 
@@ -121,7 +184,9 @@ Useful run flags:
 - `--goal <text>`: separate long-running goal text from the initial task.
 - `--max-cycles <n>`: override the workflow's configured cycle count.
 - `--watch-interval <duration>`: compare bottom-100-line captures after this
-  interval (`4s`, `1000ms`, or a bare millisecond value).
+  interval to detect a stable screen (`4s`, `1000ms`, or a bare millisecond
+  value; default `10s`).
+- `--interval-ms <n>`: poll cadence between stability checks (default `1000`).
 - `--settle-ms <n>`: wait after a stable capture before reading the transcript.
 - `--timeout-ms <n>`: return incomplete instead of waiting forever.
 
@@ -143,10 +208,18 @@ Supported template variables:
 - `{cycle}`: current cycle number.
 - `{from}` / `{to}`: source and target agent names.
 
-The shipped `pty-mgr.config.json` includes `spec-writer` and `review-loop`
-examples for Claude/Codex. Add new adapters for Gemini, OpenCode, or another
-CLI by defining where that tool stores JSONL logs and how to extract the latest
-sent user message and completed assistant message.
+The shipped `pty-mgr.config.json` includes three examples for Claude/Codex:
+
+- `spec-writer`: author drafts, reviewer critiques, author revises.
+- `review-loop`: two agents trade a task back and forth.
+- `code-review`: Codex implements the task, then Claude reviews the actual
+  `git diff` (correctness, edge cases, security) and Codex applies the fixes.
+  This is the "one agent writes code, another reviews it" workflow — run it
+  with `p flow run code-review --task "..." --cwd <repo>`.
+
+Add new adapters for Gemini, OpenCode, or another CLI by defining where that
+tool stores JSONL logs and how to extract the latest sent user message and
+completed assistant message.
 
 Flow transcript lookup is bound to the exact user prompt sent to the session,
 then assistant extraction starts after that prompt. That prevents one active
@@ -222,6 +295,49 @@ for (const name of agents) {
 mgr.destroyAll();
 ```
 
+## Telegram Remote Control
+
+Drive your sessions from Telegram — check on agents, capture output, send input,
+and get notified when a task needs you, all from your phone.
+
+Set two env vars before starting the daemon:
+
+```
+export TELEGRAM_BOT_TOKEN=<token from @BotFather>
+export TELEGRAM_CHAT_ID=<your chat id>
+p daemon
+```
+
+When `TELEGRAM_BOT_TOKEN` is set, the daemon starts a bot poller automatically.
+Only messages from `TELEGRAM_CHAT_ID` are honored. Bot commands:
+
+| Command | Description |
+|---------|-------------|
+| `/list` (`/ls`) | List sessions |
+| `/capture <name> [lines]` (`/cap`, `/c`) | Capture output (defaults to last used session) |
+| `/send <name> <text>` (`/s`) | Send text + enter, then auto-capture once the session settles |
+| `/kill <name>` (`/k`) | Kill a session |
+| `/spawn <name> [cmd]` (`/n`) | Spawn a session |
+| `/status` | Daemon info |
+| `/help` (`/start`) | List commands |
+
+`/capture` and `/send` remember the last session you touched, so you can omit
+the name on follow-ups.
+
+From inside a session (or a script), push notifications the other direction with
+the `tg` command:
+
+```
+p tg "build finished, needs review"          # fire-and-forget notification
+p tg "approve deploy? (y/n)" --reply          # block until you reply, print it
+p tg "still there?" --reply --timeout 120     # wait up to 120s (default 60)
+```
+
+`--reply` blocks the caller until you answer in Telegram and prints your reply to
+stdout — useful for human-in-the-loop gates inside an agent flow. The `tg` sender
+uses `PTY_MGR_SESSION` (set automatically in wrapped/managed sessions) to tag
+which session is asking.
+
 ## Daemon Protocol
 
 The daemon listens on a Unix socket at `~/.pty-manager/<name>.sock`.
@@ -232,9 +348,17 @@ Communication is newline-delimited JSON:
 {"cmd": "wrap", "args": {"cmd": "zsh", "cwd": "/Users/you/dev/myproject"}}
 {"cmd": "send", "name": "agent-1", "args": {"text": "echo hi\r"}}
 {"cmd": "capture", "name": "agent-1", "args": {"lines": 20}}
+{"cmd": "resize", "name": "agent-1", "args": {"cols": 120, "rows": 40}}
 {"cmd": "list"}
+{"cmd": "info", "name": "agent-1"}
+{"cmd": "alive", "name": "agent-1"}
+{"cmd": "status"}
+{"cmd": "config", "args": {"key": "screen", "value": "120x40"}}
+{"cmd": "log", "name": "agent-1", "args": {"action": "on", "format": "jsonl"}}
 {"cmd": "kill", "name": "agent-1"}
+{"cmd": "remove", "name": "agent-1"}
 {"cmd": "rename", "name": "agent-1", "args": {"newName": "agent-refactored"}}
+{"cmd": "tg-send", "args": {"message": "done"}}
 {"cmd": "shutdown"}
 ```
 
@@ -244,9 +368,14 @@ interactive use.
 ## Configuration
 
 ```
+p status                     # daemon info + current config
+p config                     # show current config
 p config screen 120x40       # default terminal size for new sessions
 p config cap-on-send on      # return capture with every send command
+p config send-delay 500      # ms to wait before the trailing enter (default 1000)
 ```
+
+Config persists in the daemon and applies to new sessions.
 
 ## Logging
 
