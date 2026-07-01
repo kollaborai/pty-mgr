@@ -9,6 +9,13 @@ const PACKAGE_VERSION = JSON.parse(
 ).version;
 const DAEMON_NAME = `@test-cli-${Date.now()}`;
 const DAEMON_SOCK = join(process.env.HOME, '.pty-manager', `${DAEMON_NAME.slice(1)}.sock`);
+const WRAP_BASE = process.cwd()
+  .split('/')
+  .pop()
+  .replace(/[^a-zA-Z0-9._-]/g, '-')
+  .replace(/^[\._-]+/, '') || 'session';
+const WRAP_GLOB = `${WRAP_BASE}*`;
+const WRAP_BASE_RE = WRAP_BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function run(...args) {
   const proc = Bun.spawnSync(['bun', BIN_PATH, ...args], {
@@ -92,12 +99,31 @@ describe('cli: help', () => {
     expect(r.exitCode).toBe(1);
     expect(r.stdout.toLowerCase()).toContain('usage:');
   });
+
+  it('lists the view command and alias', () => {
+    const r = run('--help');
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('p view <name1> <name2> [interval]');
+    expect(r.stdout).toContain('v = view');
+  });
 });
 
 describe('cli: no daemon error', () => {
   it('running commands without daemon shows "daemon not running"', () => {
     const r = run('@nonexistent-12345', 'list');
     expect(r.stderr.toLowerCase()).toContain('daemon not running');
+  });
+
+  it('view fails fast on missing args before touching the daemon', () => {
+    const r = run('@nonexistent-12345', 'view', 'left');
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain('usage: pty-mgr view <name1> <name2> [interval]');
+  });
+
+  it('"v" works same as "view" for argument validation', () => {
+    const r = run('@nonexistent-12345', 'v', 'left');
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain('usage: pty-mgr view <name1> <name2> [interval]');
   });
 });
 
@@ -275,8 +301,8 @@ describe('cli: with daemon', () => {
     it('wrap outputs: "name-N  pid=XXXX" (cwd name + increment)', () => {
       runDaemon('remove', 'all');
       const r = runDaemon('wrap', 'echo', 'hi');
-      expect(r.stdout).toMatch(/^pty-mgr-1\s+pid=\d+$/);
-      runDaemon('remove', 'pty-mgr*');
+      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-1\\s+pid=\\d+$`));
+      runDaemon('remove', WRAP_GLOB);
     });
   });
 
@@ -377,10 +403,10 @@ describe('cli: with daemon', () => {
     });
 
     it('"w" works same as "wrap"', () => {
-      runDaemon('remove', 'pty-mgr*');
+      runDaemon('remove', WRAP_GLOB);
       const r = runDaemon('w', 'echo', 'hi');
-      expect(r.stdout).toMatch(/^pty-mgr-\d+\s+pid=\d+$/);
-      runDaemon('remove', 'pty-mgr*');
+      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-\\d+\\s+pid=\\d+$`));
+      runDaemon('remove', WRAP_GLOB);
     });
 
     it('"s" works same as "send"', () => {

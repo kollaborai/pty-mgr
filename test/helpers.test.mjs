@@ -5,6 +5,7 @@ import {
   SAFE_ENV_KEYS,
   splitDaemonArgs,
   shellQuote,
+  composeSideBySideCaptureRows,
 } from "../lib/pty-manager.mjs";
 
 const DEFAULT_DAEMON = process.env.PTY_DAEMON || "default";
@@ -290,6 +291,27 @@ describe("shellQuote", () => {
 
   it("escapes embedded single quotes", () => {
     expect(shellQuote("it's")).toBe("'it'\\''s'");
+  });
+});
+
+describe("composeSideBySideCaptureRows", () => {
+  it("renders two capture buffers with headers, clipping, divider, and padding", () => {
+    const rows = composeSideBySideCaptureRows({
+      leftName: "alpha",
+      rightName: "beta",
+      leftCapture: "short\nleft line is too long\n",
+      rightCapture: "right side is also too long\nok",
+      leftWidth: 8,
+      rightWidth: 8,
+      height: 4,
+    });
+
+    expect(rows).toEqual([
+      "alpha   │beta    ",
+      "short   │right si",
+      "left lin│ok      ",
+      "        │        ",
+    ]);
   });
 });
 
