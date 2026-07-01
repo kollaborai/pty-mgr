@@ -118,6 +118,33 @@ describe('cli: flow', () => {
     expect(r.stdout.split('\n')).toEqual(['spec', 'review']);
   });
 
+  it('lists configured flows with agent details when verbose', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-flow-cli-'));
+    const configPath = join(dir, 'pty-mgr.config.json');
+    writeFileSync(configPath, JSON.stringify({
+      adapters: {},
+      flows: {
+        spec: {
+          agents: {
+            author: { kind: 'claude' },
+            reviewer: { kind: 'codex' },
+          },
+          start: { to: 'author' },
+          maxCycles: 3,
+        },
+      },
+    }));
+
+    const r = run('flow', 'list', '--verbose', '--config', configPath);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.split('\n')).toEqual([
+      'spec',
+      '  author -> claude',
+      '  reviewer -> codex',
+      '  start -> author, maxCycles -> 3',
+    ]);
+  });
+
   it('requires --task for flow run before starting agents', () => {
     const r = run('flow', 'run', 'spec');
     expect(r.exitCode).toBe(1);
