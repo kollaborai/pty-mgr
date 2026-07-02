@@ -171,6 +171,62 @@ describe('cli: flow', () => {
     ]);
   });
 
+  it('shows details for one configured flow', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-flow-cli-'));
+    const configPath = join(dir, 'pty-mgr.config.json');
+    writeFileSync(configPath, JSON.stringify({
+      adapters: {},
+      flows: {
+        spec: {
+          agents: {
+            author: { kind: 'claude' },
+            reviewer: { kind: 'codex' },
+          },
+          start: { to: 'author' },
+          turns: [
+            { from: 'author', to: 'reviewer', append: 'Review this for {goal}.' },
+            { from: 'reviewer', to: 'author', append: 'Address review cycle {cycle}.' },
+          ],
+          maxCycles: 3,
+          watchInterval: '2s',
+          settleMs: 250,
+        },
+      },
+    }));
+
+    const r = run('flow', 'show', 'spec', '--config', configPath);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout.split('\n')).toEqual([
+      'spec',
+      'agents:',
+      '  author -> claude',
+      '  reviewer -> codex',
+      'start -> author',
+      'turns:',
+      '  author -> reviewer',
+      '    append: Review this for {goal}.',
+      '  reviewer -> author',
+      '    append: Address review cycle {cycle}.',
+      'maxCycles -> 3',
+      'watchInterval -> 2s',
+      'settleMs -> 250',
+    ]);
+  });
+
+  it('errors when showing a missing flow', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-flow-cli-'));
+    const configPath = join(dir, 'pty-mgr.config.json');
+    writeFileSync(configPath, JSON.stringify({
+      adapters: {},
+      flows: { spec: {} },
+    }));
+
+    const r = run('flow', 'show', 'missing', '--config', configPath);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toBe('flow not found: missing');
+    expect(r.stdout).toBe('');
+  });
+
   it('requires --task for flow run before starting agents', () => {
     const r = run('flow', 'run', 'spec');
     expect(r.exitCode).toBe(1);
