@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `p view <name1> <name2> [interval]` — live, read-only side-by-side session
+  viewer. Renders two sessions in split panes with a divider and name headers,
+  refreshes on an interval (default `500ms`), handles terminal resizes, and
+  exits cleanly on `q` / `Ctrl-C`. Requires at least 21 terminal columns.
+- `p flow show <name>` — prints a single configured flow in detail: agents and
+  their adapter kinds, the start target, each turn's routing and steering text,
+  and cycle/interval/settle settings. Errors on unknown flow names.
+- `p flow list --verbose` — shows each flow's agents, adapter kinds, start
+  target, and maxCycles alongside the flow name.
+- `code-review` flow added to the shipped `pty-mgr.config.json`: Codex writes,
+  Claude reviews the actual `git diff` on disk, and Codex applies the fixes.
+
+### Fixed
+
+- Flow prompt submission: sending a prompt to a freshly booted TUI could leave
+  the text typed but un-submitted (Enter races startup), so no transcript was
+  ever created and the flow waited out the full timeout with zero turns. Now
+  confirms the sent message appears in the agent's transcript and nudges with a
+  bare Enter if not; a stranded start fails fast with a clear reason.
+- Waits for the agent CLI to boot before sending the first prompt.
+
 ## 1.2.11 - 2026-06-06
 
 ### Fixed

@@ -92,6 +92,9 @@ p watch agent-1 4s
 # attach interactively (ctrl-] to detach)
 p attach agent-1
 
+# watch two sessions side-by-side, live (q or Ctrl-C to exit)
+p view agent-1 agent-2
+
 # rename a session
 p rename agent-1 agent-refactored
 
@@ -122,6 +125,7 @@ Every command (`p --help`):
 | `p spawn <name> [cmd] [args...]` | Create session (default `zsh`) |
 | `p wrap [cmd] [args...]` | Spawn with auto-incrementing cwd name |
 | `p attach <name>` | Interactive mode (ctrl-] detach) |
+| `p view <name1> <name2> [interval]` | Read-only split-pane live viewer |
 | `p send <name> <text>` | Send text + enter |
 | `p send <name> --raw <text>` | Send text as-is (no enter) |
 | `p capture <name> [lines]` | Capture rendered screen |
@@ -142,7 +146,8 @@ Every command (`p --help`):
 | `p stop` | Stop current daemon |
 | `p stop all` | Stop all daemons |
 | `p setup` | Wrap CLI tools (claude, etc.) |
-| `p flow list [--config file]` | List configured agent workflows |
+| `p flow list [--verbose] [--config file]` | List configured agent workflows |
+| `p flow show <name> [--config file]` | Show one configured agent workflow in detail |
 | `p flow run <name> --task <text>` | Run a configured agent workflow |
 | `p tg <message>` | Send a Telegram notification |
 | `p tg <message> --reply [--timeout N]` | Send and block for a reply |
@@ -153,6 +158,34 @@ Every command (`p --help`):
 again, and prints `done` if the screen is unchanged or `working` if it moved —
 a cheap idle check for polling long-running agents.
 
+## Side-by-Side Viewer
+
+`p view <name1> <name2>` renders two sessions side-by-side in split panes with a
+vertical divider and live refresh. It's read-only — great for watching two agents
+work in parallel (e.g. a writer and a reviewer in a code-review flow) without
+switching terminals.
+
+```
+p daemon
+
+# spawn two agents
+p spawn writer claude
+p spawn reviewer claude
+
+# watch both live, side-by-side (refresh every 500ms by default)
+p view writer reviewer
+
+# custom refresh interval (4s, 1000ms, or bare milliseconds)
+p view writer reviewer 1000ms
+
+# "v" is an alias for "view"
+p v writer reviewer
+```
+
+The viewer enters the alternate screen, draws a header row with each session's
+name, refreshes both panes on the interval you set, and handles terminal resizes.
+Press `q` or `Ctrl-C` to exit. Requires at least 21 terminal columns.
+
 ## Agent Flows
 
 `p flow` runs configurable agent-collaboration workflows. The workflow lives in
@@ -160,7 +193,9 @@ a cheap idle check for polling long-running agents.
 
 ```
 p daemon
-p flow list
+p flow list                          # list configured flow names
+p flow list --verbose                # show each flow's agents + routing
+p flow show code-review              # full detail: agents, turns, settings
 p flow run spec-writer --task "Create a spec for the auth rewrite."
 p flow run review-loop --task "Review this repo." --max-cycles 2
 
@@ -232,7 +267,7 @@ agent from accidentally relaying another agent's newer log.
 | n/new  | spawn   | w/wrap  | wrap    |
 | s      | send    | k       | kill    |
 | c/cap  | capture | l/ls    | list    |
-| a      | attach  | r/rm    | remove  |
+| a      | attach  | v       | view    |
 | st     | status  | mv/ren  | rename  |
 | i      | info    | d       | daemon  |
 | cfg    | config  | x       | stop    |

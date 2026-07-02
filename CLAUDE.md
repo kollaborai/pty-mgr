@@ -45,15 +45,17 @@ p spawn <name> [cmd] [args...]       # create session
 p send <name> <text>                 # send text + enter
 p capture <name> [lines]             # get rendered screen
 p attach <name>                      # interactive mode (ctrl-] detach)
+p view <name1> <name2> [interval]    # read-only split-pane live viewer
 p list                               # list sessions
 p kill <name|all|glob*>              # kill sessions
 p stop [all]                         # stop daemon(s)
-p flow list                          # list configured agent workflows
+p flow list [--verbose]              # list configured agent workflows
+p flow show <name>                   # show one flow in detail
 p flow run <name> --task <text>      # run a configured agent workflow
 ```
 
 Aliases: n/new=spawn, s=send, c/cap=capture, k=kill, l/ls=list,
-a=attach, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
+a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
 
 ## Key Design Decisions
 
