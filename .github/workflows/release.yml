@@ -6,10 +6,8 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -19,12 +17,58 @@ jobs:
 
       - run: bun install
 
-      - name: Cross-compile binaries
+      - name: Cross-compile linux binaries
         run: |
-          bun build bin/pty-mgr.mjs --compile --target=bun-linux-x64 --outfile dist/pty-mgr-linux-x64
+          bun build bin/pty-mgr.mjs --compile --target=bun-linux-x64   --outfile dist/pty-mgr-linux-x64
           bun build bin/pty-mgr.mjs --compile --target=bun-linux-arm64 --outfile dist/pty-mgr-linux-arm64
-          bun build bin/pty-mgr.mjs --compile --target=bun-darwin-x64 --outfile dist/pty-mgr-darwin-x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-linux
+          path: dist/pty-mgr-*
+
+  build-darwin:
+    # Build on macOS so the binaries get a valid native ad-hoc signature.
+    # Cross-compiling darwin on Linux produces a signature AMFI rejects, which
+    # makes Apple Silicon SIGKILL the binary on launch ("killed").
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Compile darwin binaries
+        run: |
+          bun build bin/pty-mgr.mjs --compile --target=bun-darwin-x64   --outfile dist/pty-mgr-darwin-x64
           bun build bin/pty-mgr.mjs --compile --target=bun-darwin-arm64 --outfile dist/pty-mgr-darwin-arm64
+
+      - name: Ad-hoc code-sign and verify
+        run: |
+          codesign --force --sign - dist/pty-mgr-darwin-x64
+          codesign --force --sign - dist/pty-mgr-darwin-arm64
+          codesign --verify --verbose dist/pty-mgr-darwin-x64
+          codesign --verify --verbose dist/pty-mgr-darwin-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-darwin
+          path: dist/pty-mgr-*
+
+  release:
+    needs: [build-linux, build-darwin]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: bin-*
+          merge-multiple: true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -36,14 +80,8 @@ jobs:
             dist/pty-mgr-darwin-x64
             dist/pty-mgr-darwin-arm64
 
-      - name: Upload binaries for npm job
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: dist/pty-mgr-*
-
   publish-npm:
-    needs: build
+    needs: release
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # required for npm trusted publishing (OIDC)
@@ -62,8 +100,9 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: binaries
           path: dist
+          pattern: bin-*
+          merge-multiple: true
 
       - name: Stage platform binaries
         run: |

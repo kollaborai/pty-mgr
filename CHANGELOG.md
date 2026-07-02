@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1 - 2026-07-02
+
+### Fixed
+
+- macOS binaries are now compiled on a macOS runner and ad-hoc code-signed, so
+  they carry a valid signature and Apple Silicon (AMFI) no longer SIGKILLs them
+  on launch (`killed`). They were previously cross-compiled on Linux, whose
+  embedded linker signature is rejected by macOS. The `curl | sh` installer also
+  re-signs the binary on download as a fallback for older releases.
+
 ## 1.3.0 - 2026-07-02
 
 ### Added

@@ -56,6 +56,15 @@ main() {
   curl -fsSL "$URL" -o "${INSTALL_DIR}/pty-mgr"
   chmod +x "${INSTALL_DIR}/pty-mgr"
 
+  # macOS: ad-hoc re-sign against the downloaded bytes. Apple Silicon (AMFI)
+  # SIGKILLs binaries whose signature is invalid; re-signing makes it valid.
+  # Belt-and-suspenders: release binaries are already signed in CI, but this
+  # covers older releases and any download that altered the bytes.
+  if [ "$OS" = "darwin" ] && command -v codesign >/dev/null 2>&1; then
+    codesign --force --sign - "${INSTALL_DIR}/pty-mgr" 2>/dev/null \
+      || echo "warning: codesign failed; if you see 'killed', run: codesign --force --sign - ${INSTALL_DIR}/pty-mgr"
+  fi
+
   # create p symlink
   ln -sf pty-mgr "${INSTALL_DIR}/p"
 
