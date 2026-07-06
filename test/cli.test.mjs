@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -541,5 +541,66 @@ describe('cli: with daemon', () => {
     runDaemon('stop');
     void daemonProc; // suppress unused lint
     daemonProc?.kill();
+  });
+});
+
+describe('cli: flow layering', () => {
+  const runAt = (cwd, env, ...args) => {
+    const proc = Bun.spawnSync(['bun', BIN_PATH, ...args], {
+      cwd,
+      env: { ...process.env, ...env },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    return {
+      stdout: proc.stdout.toString().trim(),
+      stderr: proc.stderr.toString().trim(),
+      exitCode: proc.exitCode,
+    };
+  };
+
+  it('flow new scaffolds a project config that lists as [project]', () => {
+    const proj = mkdtempSync(join(tmpdir(), 'pty-mgr-proj-'));
+    const xdg = mkdtempSync(join(tmpdir(), 'pty-mgr-xdg-'));
+    const created = runAt(proj, { XDG_CONFIG_HOME: xdg }, 'flow', 'new', 'projflow');
+    expect(created.exitCode).toBe(0);
+    const cfgPath = join(proj, 'pty-mgr.config.json');
+    expect(existsSync(cfgPath)).toBe(true);
+    expect(JSON.parse(readFileSync(cfgPath, 'utf8')).flows.projflow).toBeTruthy();
+
+    const listed = runAt(proj, { XDG_CONFIG_HOME: xdg }, 'flow', 'list');
+    expect(listed.exitCode).toBe(0);
+    const lines = listed.stdout.split('\n');
+    expect(lines).toContain('projflow [project]');
+    expect(lines).toContain('code-review [default]');
+  });
+
+  it('flow new --global scaffolds the XDG user config and lists as [user]', () => {
+    const xdg = mkdtempSync(join(tmpdir(), 'pty-mgr-xdg-'));
+    const emptyProj = mkdtempSync(join(tmpdir(), 'pty-mgr-empty-'));
+    const created = runAt(emptyProj, { XDG_CONFIG_HOME: xdg }, 'flow', 'new', 'userflow', '--global');
+    expect(created.exitCode).toBe(0);
+    expect(existsSync(join(xdg, 'pty-mgr', 'config.json'))).toBe(true);
+
+    const listed = runAt(emptyProj, { XDG_CONFIG_HOME: xdg }, 'flow', 'list');
+    expect(listed.stdout.split('\n')).toContain('userflow [user]');
+  });
+
+  it('a project flow overrides a default flow of the same name', () => {
+    const proj = mkdtempSync(join(tmpdir(), 'pty-mgr-proj-'));
+    const xdg = mkdtempSync(join(tmpdir(), 'pty-mgr-xdg-'));
+    writeFileSync(join(proj, 'pty-mgr.config.json'), JSON.stringify({ flows: { 'code-review': {} } }));
+    const listed = runAt(proj, { XDG_CONFIG_HOME: xdg }, 'flow', 'list');
+    const lines = listed.stdout.split('\n');
+    expect(lines).toContain('code-review [project]');
+    expect(lines).not.toContain('code-review [default]');
+  });
+
+  it('open config opens (and creates) the user config dir', () => {
+    const xdg = mkdtempSync(join(tmpdir(), 'pty-mgr-xdg-'));
+    const opened = runAt(tmpdir(), { XDG_CONFIG_HOME: xdg }, 'open', 'config', 'true');
+    expect(opened.exitCode).toBe(0);
+    expect(opened.stdout).toContain(join(xdg, 'pty-mgr'));
+    expect(existsSync(join(xdg, 'pty-mgr'))).toBe(true);
   });
 });
