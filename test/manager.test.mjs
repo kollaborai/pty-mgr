@@ -191,6 +191,17 @@ describe('PtyManager', () => {
       const afterKill = mgr.capture('dead-cap-test');
       expect(afterKill).toContain('final words');
     });
+
+    it('captureAnsiCompact keeps gaps left by cursor-positioned text', async () => {
+      // TUIs place text with cursor moves, leaving null cells in between;
+      // those must render as blanks, not collapse ("A         B" -> "AB")
+      mgr.spawn('gap-test', 'printf', ['A\\033[10CB\\n']);
+      await sleep(500);
+
+      const out = mgr.get('gap-test').captureAnsiCompact(0);
+      const stripped = out.replace(/\x1b\[[0-9;]*m/g, '');
+      expect(stripped).toContain('A' + ' '.repeat(10) + 'B');
+    });
   });
 
   describe('SENDKEYS', () => {

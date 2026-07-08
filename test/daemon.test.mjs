@@ -325,6 +325,71 @@ describe('daemon protocol', () => {
     });
   });
 
+  describe('attach', () => {
+    // speak the attach protocol raw: send the request, collect ack + replay
+    function attachCollect(name, ms = 1000) {
+      return new Promise((resolve, reject) => {
+        const conn = createConnection(SOCKET_PATH);
+        let buf = '';
+        conn.on('error', reject);
+        conn.on('connect', () => {
+          conn.write(JSON.stringify({ cmd: 'attach', name }) + '\n');
+        });
+        conn.on('data', d => { buf += d.toString(); });
+        setTimeout(() => { conn.destroy(); resolve(buf); }, ms);
+      });
+    }
+
+    it('replays full scrollback with colors, no forced alt screen', async () => {
+      const res = await sendCmd({
+        cmd: 'spawn',
+        name: 'att-shell',
+        args: {
+          cmd: 'bash',
+          args: ['-c', 'for i in $(seq 1 200); do printf "\\033[31mline-%03d\\033[0m\\n" "$i"; done; sleep 5'],
+        },
+      });
+      expect(res.ok).toBe(true);
+      await new Promise(r => setTimeout(r, 1200));
+
+      const data = await attachCollect('att-shell');
+      const nl = data.indexOf('\n');
+      const ack = JSON.parse(data.slice(0, nl));
+      expect(ack.ok).toBe(true);
+      expect(ack.mode).toBe('attach');
+      expect(ack.alt).toBe(false);
+
+      const replay = data.slice(nl + 1);
+      // full history, including lines far above the visible screen
+      expect(replay).toContain('line-001');
+      expect(replay).toContain('line-200');
+      // ANSI colors preserved
+      expect(replay).toMatch(/\x1b\[[0-9;]*m/);
+      // normal-buffer session must not push the client into the alt screen
+      expect(replay).not.toContain('\x1b[?1049h');
+    }, 15000);
+
+    it('replays alt-screen TUIs with the alt-screen switch', async () => {
+      const res = await sendCmd({
+        cmd: 'spawn',
+        name: 'att-tui',
+        args: { cmd: 'less', args: ['/etc/hosts'] },
+      });
+      expect(res.ok).toBe(true);
+      await new Promise(r => setTimeout(r, 1200));
+
+      const data = await attachCollect('att-tui');
+      const nl = data.indexOf('\n');
+      const ack = JSON.parse(data.slice(0, nl));
+      expect(ack.ok).toBe(true);
+      expect(ack.alt).toBe(true);
+
+      const replay = data.slice(nl + 1);
+      expect(replay).toContain('\x1b[?1049h');
+      expect(replay).toContain('localhost');
+    }, 15000);
+  });
+
   describe('config', () => {
     it('sets screen size config', async () => {
       const res = await sendCmd({
