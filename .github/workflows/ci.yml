@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # `bun test` and the `bun run demo` smoke test (bin/pty-mgr.mjs demo ->
       # runDemo in lib/pty-manager.mjs, which spawns `zsh` inside a PTY) both
