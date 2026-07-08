@@ -1,6 +1,20 @@
 import { describe, it, beforeEach, afterEach, expect } from 'bun:test';
 import { PtyManager } from '../lib/pty-manager.mjs';
 
+// PTY output can lag process exit: buffered bytes finish draining into the
+// xterm buffer shortly after `exited` resolves, more so on a loaded CI runner.
+// Poll the capture until it has content instead of reading eagerly right after
+// waitForExit (which would occasionally see an empty buffer).
+async function captureWhenReady(mgr, name, tailLines) {
+  let out = '';
+  for (let i = 0; i < 50; i++) {
+    out = mgr.capture(name, tailLines);
+    if (out.trim().length > 0) return out;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return out;
+}
+
 describe('edge cases', () => {
   let mgr;
 
@@ -16,7 +30,7 @@ describe('edge cases', () => {
     it('handles massive output without crashing', async () => {
       mgr.spawn('edge-throughput', 'zsh', ['-c', 'seq 1 10000']);
       await mgr.waitForExit('edge-throughput', 10000);
-      const output = mgr.capture('edge-throughput');
+      const output = await captureWhenReady(mgr, 'edge-throughput');
       expect(typeof output).toBe('string');
       expect(output.length).toBeGreaterThan(0);
     }, 30000);
@@ -26,14 +40,14 @@ describe('edge cases', () => {
     it('captures full output exceeding scrollback', async () => {
       mgr.spawn('edge-scrollback', 'zsh', ['-c', 'seq 1 6000']);
       await mgr.waitForExit('edge-scrollback', 10000);
-      const full = mgr.capture('edge-scrollback');
+      const full = await captureWhenReady(mgr, 'edge-scrollback');
       expect(full.length).toBeGreaterThan(0);
     }, 30000);
 
     it('captures tail lines from large output', async () => {
       mgr.spawn('edge-tail', 'zsh', ['-c', 'seq 1 6000']);
       await mgr.waitForExit('edge-tail', 10000);
-      const tail = mgr.capture('edge-tail', 10);
+      const tail = await captureWhenReady(mgr, 'edge-tail', 10);
       const lines = tail.split('\n').filter(l => l.trim());
       expect(lines.length).toBeLessThanOrEqual(10);
       expect(lines.length).toBeGreaterThan(0);
