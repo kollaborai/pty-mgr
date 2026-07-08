@@ -1529,10 +1529,8 @@ function attachToSession(name) {
           process.stdin.pause();
           process.stdin.removeAllListeners("data");
         }
-        // pop back to normal screen buffer
-        process.stdout.write("\x1b[?1049l");
         conn.end();
-        console.log("detached");
+        console.log("\r\ndetached");
         resolve();
       }
     });
