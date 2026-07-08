@@ -405,7 +405,10 @@ describe('cli: with daemon', () => {
         'watch-changing',
         'zsh',
         '-lc',
-        'i=0; while [ $i -lt 50 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done; sleep 1',
+        // keep emitting for ~9s so the watch subprocess's two captures always
+        // overlap live output even under full-suite load (session is removed
+        // right after the assertion, so this does not slow the suite down).
+        'i=0; while [ $i -lt 300 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done',
       );
       await new Promise(r => setTimeout(r, 250));
       const r = runDaemon('watch', 'watch-changing', '120ms');
@@ -422,7 +425,10 @@ describe('cli: with daemon', () => {
         'watch-glob-changing',
         'zsh',
         '-lc',
-        'i=0; while [ $i -lt 50 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done; sleep 1',
+        // keep emitting for ~9s so the watch subprocess's two captures always
+        // overlap live output even under full-suite load (session is removed
+        // right after the assertion, so this does not slow the suite down).
+        'i=0; while [ $i -lt 300 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done',
       );
       await new Promise(r => setTimeout(r, 250));
       const r = runDaemon('watch', 'watch-glob-*', '120ms');
