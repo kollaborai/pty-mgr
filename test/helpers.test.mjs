@@ -6,6 +6,7 @@ import {
   splitDaemonArgs,
   shellQuote,
   composeSideBySideCaptureRows,
+  parseAttachInput,
 } from "../lib/pty-manager.mjs";
 
 const DEFAULT_DAEMON = process.env.PTY_DAEMON || "default";
@@ -341,5 +342,50 @@ describe("SAFE_ENV_KEYS", () => {
 
   it("has more than 5 entries", () => {
     expect(SAFE_ENV_KEYS.length).toBeGreaterThan(5);
+  });
+});
+
+describe("parseAttachInput", () => {
+  const frame = (c, r) => `\x1b_ptymgr:resize:${c}:${r}\x1b\\`;
+
+  it("forwards plain keystrokes untouched", () => {
+    const { forward, resizes, rest } = parseAttachInput(Buffer.from("ls -la\r"));
+    expect(forward.toString()).toBe("ls -la\r");
+    expect(resizes).toEqual([]);
+    expect(rest.length).toBe(0);
+  });
+
+  it("forwards a lone trailing ESC (the Escape key), not held", () => {
+    const { forward, resizes, rest } = parseAttachInput(Buffer.from("\x1b"));
+    expect(forward.toString()).toBe("\x1b");
+    expect(resizes).toEqual([]);
+    expect(rest.length).toBe(0);
+  });
+
+  it("forwards an arrow-key CSI sequence untouched", () => {
+    const { forward, resizes } = parseAttachInput(Buffer.from("\x1b[A"));
+    expect(forward.toString()).toBe("\x1b[A");
+    expect(resizes).toEqual([]);
+  });
+
+  it("extracts a resize frame and forwards the surrounding input", () => {
+    const { forward, resizes } = parseAttachInput(Buffer.from("a" + frame(80, 24) + "b"));
+    expect(resizes).toEqual([{ cols: 80, rows: 24 }]);
+    expect(forward.toString()).toBe("ab");
+  });
+
+  it("extracts multiple frames in one chunk", () => {
+    const { resizes } = parseAttachInput(Buffer.from(frame(80, 24) + frame(100, 30)));
+    expect(resizes).toEqual([{ cols: 80, rows: 24 }, { cols: 100, rows: 30 }]);
+  });
+
+  it("reassembles a frame split across two reads", () => {
+    const whole = frame(120, 30);
+    const first = parseAttachInput(Buffer.from("x" + whole.slice(0, 10)));
+    expect(first.resizes).toEqual([]);
+    expect(first.forward.toString()).toBe("x");
+    const second = parseAttachInput(Buffer.concat([first.rest, Buffer.from(whole.slice(10) + "y")]));
+    expect(second.resizes).toEqual([{ cols: 120, rows: 30 }]);
+    expect(second.forward.toString()).toBe("y");
   });
 });

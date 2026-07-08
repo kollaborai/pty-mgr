@@ -431,6 +431,35 @@ describe('daemon protocol', () => {
       expect(info.ok).toBe(true);
       expect(info.info.terminalSize).toBe('90x20');
     }, 15000);
+
+    it('applies an in-band resize frame sent mid-attach (live resize)', async () => {
+      const spawn = await sendCmd({ cmd: 'spawn', name: 'att-live', args: { cmd: 'zsh' } });
+      expect(spawn.ok).toBe(true);
+      await new Promise(r => setTimeout(r, 300));
+
+      await new Promise((resolve, reject) => {
+        const conn = createConnection(SOCKET_PATH);
+        let buf = '';
+        let acked = false;
+        conn.on('error', reject);
+        conn.on('connect', () => {
+          conn.write(JSON.stringify({ cmd: 'attach', name: 'att-live', cols: 100, rows: 40 }) + '\n');
+        });
+        conn.on('data', d => {
+          buf += d.toString();
+          if (!acked && buf.includes('\n')) {
+            acked = true;
+            // simulate the client's terminal resizing while attached
+            conn.write('\x1b_ptymgr:resize:64:18\x1b\\');
+            setTimeout(() => { conn.destroy(); resolve(); }, 300);
+          }
+        });
+      });
+
+      const info = await sendCmd({ cmd: 'info', name: 'att-live' });
+      expect(info.ok).toBe(true);
+      expect(info.info.terminalSize).toBe('64x18');
+    }, 15000);
   });
 
   describe('config', () => {
