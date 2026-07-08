@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "PTY session manager with terminal emulation for programmatic session control.",
   "type": "module",
   "main": "lib/pty-manager.mjs",
@@ -26,10 +26,10 @@
     "@xterm/headless": "^6.0.0"
   },
   "optionalDependencies": {
-    "@mentiko/pty-mgr-linux-x64": "1.4.1",
-    "@mentiko/pty-mgr-linux-arm64": "1.4.1",
-    "@mentiko/pty-mgr-darwin-x64": "1.4.1",
-    "@mentiko/pty-mgr-darwin-arm64": "1.4.1"
+    "@mentiko/pty-mgr-linux-x64": "1.4.2",
+    "@mentiko/pty-mgr-linux-arm64": "1.4.2",
+    "@mentiko/pty-mgr-darwin-x64": "1.4.2",
+    "@mentiko/pty-mgr-darwin-arm64": "1.4.2"
   },
   "engines": {
     "bun": ">=1.0"
