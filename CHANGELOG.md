@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.4.2 - 2026-07-07
+
+### Changed
+
+- Internal refactor of `lib/pty-manager.mjs`: the two near-identical socket
+  clients collapse into one `requestSocket`, and the terminal-size clamps,
+  `--log` wiring, telegram send, capture-stability check, and transcript
+  listing move to shared helpers. No behavior or public API change.
+
+### Fixed
+
+- Hardened error handling on three paths that could take the daemon down: the
+  socket client now turns a malformed or truncated reply into a rejection
+  instead of an uncaught throw in its data handler; the log write stream gets an
+  `error` listener (a disk-full / permission error drops logging instead of
+  crashing); and attach-mode input is guarded so a keystroke sent to a
+  just-exited session no longer throws in the socket handler.
+
+## 1.4.1 - 2026-07-07
+
+### Fixed
+
+- `p attach` replays the session's full terminal state via the xterm
+  serialize-addon (scrollback, colors, cursor, modes). Normal-buffer sessions
+  (a shell, Claude Code, …) are no longer forced into the alternate screen —
+  which had discarded scrollback — so history stays scrollable in the client.
+  Alt-screen TUIs still get the alt-screen switch, and the client pops back to
+  its normal screen on detach.
+
+## 1.4.0 - 2026-07-07
+
+### Added
+
+- `p attach` replays full scrollback history on connect, not just the visible
+  screen.
+- Layered flow config resolution: flows merge from the packaged defaults, the
+  XDG user config, and a project `pty-mgr.config.json` (project overrides user
+  overrides default). `p flow list` tags each flow with its source layer,
+  `p flow new [--global]` scaffolds a project (or user) flow, and `p open
+  config` opens the config directory.
+
 ## 1.3.1 - 2026-07-02
 
 ### Fixed
