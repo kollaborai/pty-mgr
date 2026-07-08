@@ -388,6 +388,49 @@ describe('daemon protocol', () => {
       expect(replay).toContain('\x1b[?1049h');
       expect(replay).toContain('localhost');
     }, 15000);
+
+    it('sizes the session to the attaching client', async () => {
+      // A client that sends its terminal size in the attach request resizes the
+      // session (and its child's winsize) to match — the fix for the flickering
+      // status line and missing bottom row when a session is taller/wider than
+      // the pane it is viewed in.
+      const spawn = await sendCmd({ cmd: 'spawn', name: 'att-resize', args: { cmd: 'zsh' } });
+      expect(spawn.ok).toBe(true);
+      await new Promise(r => setTimeout(r, 300));
+
+      const data = await new Promise((resolve, reject) => {
+        const conn = createConnection(SOCKET_PATH);
+        let buf = '';
+        conn.on('error', reject);
+        conn.on('connect', () => {
+          conn.write(JSON.stringify({ cmd: 'attach', name: 'att-resize', cols: 77, rows: 25 }) + '\n');
+        });
+        conn.on('data', d => { buf += d.toString(); });
+        setTimeout(() => { conn.destroy(); resolve(buf); }, 600);
+      });
+      const ack = JSON.parse(data.slice(0, data.indexOf('\n')));
+      expect(ack.ok).toBe(true);
+      expect(ack.cols).toBe(77);
+      expect(ack.rows).toBe(25);
+
+      // the resize sticks on the session after the client detaches
+      const info = await sendCmd({ cmd: 'info', name: 'att-resize' });
+      expect(info.ok).toBe(true);
+      expect(info.info.terminalSize).toBe('77x25');
+    }, 15000);
+
+    it('leaves the session size unchanged when the client sends no size', async () => {
+      const spawn = await sendCmd({
+        cmd: 'spawn', name: 'att-nosize', args: { cmd: 'zsh', cols: 90, rows: 20 },
+      });
+      expect(spawn.ok).toBe(true);
+      await new Promise(r => setTimeout(r, 300));
+
+      await attachCollect('att-nosize', 500);
+      const info = await sendCmd({ cmd: 'info', name: 'att-nosize' });
+      expect(info.ok).toBe(true);
+      expect(info.info.terminalSize).toBe('90x20');
+    }, 15000);
   });
 
   describe('config', () => {
