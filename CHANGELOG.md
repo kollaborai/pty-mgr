@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.4.3 - 2026-07-07
+
+### Fixed
+
+- `p attach` now sizes the session to the attaching client's terminal instead of
+  resizing the client to the session. The old app-driven CSI-8 resize is ignored
+  inside tmux/iTerm panes (or resizes the whole window), so a session viewed in a
+  smaller pane kept its default winsize — which made a full-frame TUI (e.g. Claude
+  Code) flicker its status line and pushed its bottom row off-screen. The client
+  now sends its size in the attach request and the daemon resizes the session
+  (SIGWINCHing the child) to match.
+
+### Added
+
+- Live-resize while attached: when the client's terminal changes size, the
+  session (and its child) resize to follow. The client sends an out-of-band APC
+  control frame that the daemon strips from the raw input stream, so it never
+  reaches the pty as keystrokes.
+
 ## 1.4.2 - 2026-07-07
 
 ### Changed

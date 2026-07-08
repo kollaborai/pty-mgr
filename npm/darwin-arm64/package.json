@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr-darwin-arm64",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "pty-mgr binary for macOS arm64 (Apple Silicon)",
   "os": [
     "darwin"
