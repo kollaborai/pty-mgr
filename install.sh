@@ -88,9 +88,52 @@ main() {
       ;;
   esac
 
+  warn_conflicts
+
   echo "to wrap CLI tools (claude, codex, etc.) in managed sessions:"
   echo "  pty-mgr setup"
   echo ""
+}
+
+# Report other pty-mgr copies on PATH. INSTALL_DIR is prepended, so these lose
+# in a fresh login shell -- but they win in shells started before this install
+# and in non-interactive shells that never source an rc file. That failure is
+# silent: the CLI still runs, it just isn't the version you installed.
+warn_conflicts() {
+  CONFLICTS="$(find_conflicts)"
+  [ -n "$CONFLICTS" ] || return 0
+
+  echo "warning: other pty-mgr commands found on PATH:"
+  printf '%s\n' "$CONFLICTS" | sed 's/^/    /'
+  echo ""
+  echo "  these shadow ${INSTALL_DIR} in shells started before this install and"
+  echo "  in non-interactive shells that skip your rc file. remove them with:"
+  echo "    rm $(printf '%s' "$CONFLICTS" | tr '\n' ' ')"
+  echo ""
+}
+
+find_conflicts() {
+  OLD_IFS="$IFS"
+  IFS=:
+  for DIR in $PATH; do
+    # empty entry means cwd; never treat it as an install location
+    [ -n "$DIR" ] || continue
+    [ "$DIR" = "$INSTALL_DIR" ] && continue
+    for CMD in pty-mgr p; do
+      TARGET="${DIR}/${CMD}"
+      # -f follows symlinks and excludes directories
+      { [ -f "$TARGET" ] && [ -x "$TARGET" ]; } || continue
+      # `p` is a common name; only flag one that points at a pty-mgr binary
+      if [ "$CMD" = "p" ]; then
+        case "$(readlink "$TARGET" 2>/dev/null)" in
+          *pty-mgr*) ;;
+          *) continue ;;
+        esac
+      fi
+      printf '%s\n' "$TARGET"
+    done
+  done
+  IFS="$OLD_IFS"
 }
 
 add_to_path() {
