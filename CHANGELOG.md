@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.5.0 - 2026-07-18
+
+### Added
+
+- `p daemons` lists every running daemon on the machine — one line per daemon
+  with pid, uptime, session counts, and cwd, in the same style as `p list`. The
+  currently-selected daemon (`@name` / `$PTY_DAEMON`) is marked with a leading
+  `*`; a socket that no longer answers is shown as `(stale)` and one with an
+  empty name as `(unnamed)`. It is read-only — unlike `p stop all` it never
+  removes stale sockets. Both commands now share one socket-enumeration helper.
+
+### Fixed
+
+- The installer no longer reports success while an older `pty-mgr` shadows the
+  freshly installed one. `install.sh` used to print `PATH is set.` once
+  `~/.pty-mgr/bin` was on `PATH`, which said nothing about *which* copy answers:
+  a stale binary earlier in `PATH` (e.g. a hand-placed `/usr/local/bin/pty-mgr`,
+  which sits on line 1 of macOS `/etc/paths`) would win silently. The installer
+  now scans every `PATH` entry after installing and prints any other `pty-mgr`
+  or `p` it finds, with an exact `rm` line to remove them.
+
 ## 1.4.3 - 2026-07-07
 
 ### Fixed
