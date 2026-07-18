@@ -4,5 +4,8 @@ dist/
 .DS_Store
 demo/.pagent/
 
+# npm lockfile: bun.lock is authoritative (CI uses bun install); npm lock is unused
+package-lock.json
+
 # platform binaries (CI copies these during publish)
 npm/*/pty-mgr
