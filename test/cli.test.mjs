@@ -542,6 +542,21 @@ describe('cli: with daemon', () => {
     });
   });
 
+  describe('daemons output', () => {
+    it('lists the selected daemon marked with "*"', () => {
+      const r = runDaemon('daemons');
+      expect(r.exitCode).toBe(0);
+      const name = DAEMON_NAME.slice(1);
+      // other daemons may be running on this machine; match only our own line
+      const line = r.stdout.split('\n').find((l) => l.includes(name));
+      expect(line).toBeDefined();
+      // the daemon addressed via @name is the "current" one, marked with '*'
+      expect(line.trimStart().startsWith('*')).toBe(true);
+      expect(line).toContain('pid=');
+      expect(line).toContain('sessions');
+    });
+  });
+
   afterAll(() => {
     runDaemon('remove', 'all');
     runDaemon('stop');
