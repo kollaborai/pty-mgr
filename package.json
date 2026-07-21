@@ -1,9 +1,24 @@
 {
   "name": "@mentiko/pty-mgr",
   "version": "1.5.0",
-  "description": "PTY session manager with terminal emulation for programmatic session control.",
-  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kollaborai/pty-mgr.git"
+  },
   "main": "lib/pty-manager.mjs",
+  "dependencies": {
+    "@chat-adapter/discord": "4.34.0",
+    "@chat-adapter/state-memory": "4.34.0",
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0",
+    "chat": "4.34.0"
+  },
+  "optionalDependencies": {
+    "@mentiko/pty-mgr-linux-x64": "1.5.0",
+    "@mentiko/pty-mgr-linux-arm64": "1.5.0",
+    "@mentiko/pty-mgr-darwin-x64": "1.5.0",
+    "@mentiko/pty-mgr-darwin-arm64": "1.5.0"
+  },
   "exports": {
     ".": {
       "import": "./lib/pty-manager.mjs"
@@ -13,24 +28,7 @@
     "pty-mgr": "bin/pty-mgr",
     "p": "bin/pty-mgr"
   },
-  "scripts": {
-    "test": "bun test",
-    "demo": "bun bin/pty-mgr.mjs demo",
-    "build": "node scripts/build.cjs",
-    "build:all": "node scripts/build.cjs --all",
-    "install-local": "node scripts/build.cjs && cp dist/pty-mgr ~/.pty-mgr/bin/pty-mgr && codesign --force --sign - ~/.pty-mgr/bin/pty-mgr",
-    "version:sync": "node scripts/version-sync.cjs"
-  },
-  "dependencies": {
-    "@xterm/addon-serialize": "^0.14.0",
-    "@xterm/headless": "^6.0.0"
-  },
-  "optionalDependencies": {
-    "@mentiko/pty-mgr-linux-x64": "1.5.0",
-    "@mentiko/pty-mgr-linux-arm64": "1.5.0",
-    "@mentiko/pty-mgr-darwin-x64": "1.5.0",
-    "@mentiko/pty-mgr-darwin-arm64": "1.5.0"
-  },
+  "description": "PTY session manager with terminal emulation for programmatic session control.",
   "engines": {
     "bun": ">=1.0"
   },
@@ -49,9 +47,15 @@
     "agent",
     "orchestration"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/kollaborai/pty-mgr.git"
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test",
+    "demo": "bun bin/pty-mgr.mjs demo",
+    "build": "node scripts/build.cjs",
+    "build:all": "node scripts/build.cjs --all",
+    "build:spec": "bun $HOME/.claude/skills/spec-to-html/build.mjs docs/messaging-relay.md docs/messaging-relay.html",
+    "install-local": "node scripts/build.cjs && cp dist/pty-mgr ~/.pty-mgr/bin/pty-mgr && codesign --force --sign - ~/.pty-mgr/bin/pty-mgr",
+    "version:sync": "node scripts/version-sync.cjs"
   },
-  "license": "MIT"
+  "type": "module"
 }
