@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Messaging Relay — Gap Analysis</title>
+<style>
+:root{
+  --bg:#0e0e0f; --bg-1:#151517; --bg-2:#1b1b1e;
+  --fg:#f4f4f5; --dim:#a1a1aa; --mute:#71717a; --faint:#52525b;
+  --hair:rgba(255,255,255,.07); --hair-2:rgba(255,255,255,.13);
+  --blue:#3b82f6; --blue-2:#60a5fa; --teal:#2dd4bf;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Inter","SF Pro Text",system-ui,sans-serif;
+  --maxw:820px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0; background:var(--bg); color:var(--fg); font-family:var(--sans);
+  font-size:16px; line-height:1.72; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility}
+.wrap{max-width:var(--maxw); margin:0 auto; padding:0 28px 140px}
+::selection{background:rgba(59,130,246,.28)}
+:focus-visible{outline:2px solid var(--blue); outline-offset:3px; border-radius:3px}
+.masthead{position:relative; margin:0 -28px 8px; padding:96px 28px 46px; overflow:hidden}
+.masthead::before{content:""; position:absolute; inset:0; z-index:0;
+  background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,.04) 1px, transparent 0);
+  background-size:26px 26px; -webkit-mask-image:linear-gradient(180deg,#000,transparent 88%); mask-image:linear-gradient(180deg,#000,transparent 88%)}
+.masthead::after{content:""; position:absolute; left:50%; top:-30%; transform:translateX(-50%);
+  width:760px; height:420px; z-index:0; pointer-events:none; background:radial-gradient(ellipse at center, rgba(59,130,246,.13), transparent 68%)}
+.masthead > *{position:relative; z-index:1}
+.eyebrow{font-family:var(--mono); font-size:12px; letter-spacing:.24em; text-transform:uppercase; color:var(--blue-2); margin:0 0 18px}
+.masthead h1{font-size:clamp(32px,5.4vw,50px); line-height:1.05; letter-spacing:-.025em; font-weight:700; margin:0 0 18px; text-wrap:balance}
+.dek{color:var(--dim); font-size:18px; line-height:1.6; max-width:64ch; margin:0}
+.meta{display:flex; flex-wrap:wrap; gap:10px 30px; margin-top:28px; font-family:var(--mono); font-size:12px; color:var(--faint); letter-spacing:.02em}
+.meta b{color:var(--dim); font-weight:500; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; margin-right:7px}
+.meta .ok{color:var(--teal)}
+h2{font-size:25px; letter-spacing:-.015em; font-weight:650; margin:66px 0 20px; padding-top:30px;
+  border-top:1px solid var(--hair); display:flex; align-items:baseline; gap:15px; text-wrap:balance}
+h2 .s-num{font-family:var(--mono); font-size:13px; font-weight:600; color:var(--blue-2); letter-spacing:.06em; flex:none}
+h3{font-size:16px; font-weight:650; margin:38px 0 12px; color:var(--fg); display:flex; align-items:baseline; gap:11px}
+h3 .s-num{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--teal); letter-spacing:.04em; flex:none}
+p{margin:16px 0}
+strong{color:var(--fg); font-weight:650}
+em{color:var(--dim)}
+a{color:var(--blue-2); text-decoration:none; border-bottom:1px solid rgba(96,165,250,.32)}
+a:hover{border-bottom-color:var(--blue-2)}
+ul,ol{padding-left:1.35em; margin:16px 0}
+li{margin:7px 0} li::marker{color:var(--faint)} li strong:first-child{color:var(--fg)}
+hr{display:none}
+code{font-family:var(--mono); font-size:.86em; background:rgba(255,255,255,.055); color:#e7e7ea; padding:.14em .42em; border-radius:5px}
+.code{position:relative; margin:22px 0}
+.code[data-lang]::before{content:attr(data-lang); position:absolute; top:12px; right:15px;
+  font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint)}
+pre{background:var(--bg-1); border-radius:13px; padding:20px 22px; margin:22px 0; overflow-x:auto;
+  font-family:var(--mono); font-size:13.5px; line-height:1.62; color:#d4d4d8}
+pre code{background:none; padding:0; font-size:inherit; color:inherit; border-radius:0}
+.code pre{margin:0}
+blockquote{margin:24px 0; padding:4px 0 4px 22px; border-left:2px solid var(--blue); color:var(--fg); font-size:1.03em}
+blockquote p{margin:.35em 0; color:#e8e8ea}
+.tablewrap{overflow-x:auto; margin:24px 0}
+table{border-collapse:collapse; width:100%; font-size:14px}
+thead th{text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--blue-2); font-weight:600; padding:0 16px 11px; white-space:nowrap; border-bottom:1px solid var(--hair-2)}
+tbody td{padding:12px 16px; vertical-align:top; color:var(--dim); border-bottom:1px solid var(--hair); line-height:1.55}
+tbody tr:last-child td{border-bottom:none} tbody td strong{color:var(--fg)} tbody td code{font-size:.82em}
+.diagram{margin:28px 0; background:var(--bg-1); border-radius:16px; padding:24px 18px; overflow-x:auto}
+.diagram svg{display:block; max-width:100%; height:auto; margin:0 auto}
+.foot{margin-top:80px; padding-top:26px; border-top:1px solid var(--hair); font-family:var(--mono);
+  font-size:12px; color:var(--faint); letter-spacing:.02em; display:flex; flex-wrap:wrap; gap:8px 20px; justify-content:space-between}
+@media (max-width:640px){.wrap{padding:0 18px 90px} .masthead{margin:0 -18px 8px; padding:70px 18px 36px} h2{font-size:22px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <p class="eyebrow">Mentiko · pty-mgr · gap review</p>
+    <h1>Agent Messaging Relay — Gap Analysis</h1>
+    <p class="dek">Adversarial review of messaging-relay.md by four parallel agents plus live code, npm, and vendor-doc verification. The foundation checks out real; the ship-blockers are concentrated in the parts no framework gives you — failover, injection safety, authorization, and the "agent never knows the relay exists" mechanism.</p>
+    <div class="meta"><span><b>Reviews</b><span>messaging-relay.md</span></span><span><b>Target</b><span>lib/pty-manager.mjs @ v1.5.0</span></span><span><b>Verdict</b><span class="ok">not buildable as written</span></span><span><b>Status</b><span>review</span></span></div>
+  </header>
+  <main class="doc">
+<h2>verdict</h2>
+<p>The foundation is sound and the spec is honest about the parts it verified. The Chat SDK
+is <strong>real</strong>, its API matches the spec <strong>to the method signature</strong>, and the bundle numbers
+<strong>reproduce to the decimal</strong>. But the spec is <strong>not buildable as written</strong>: ~12 blockers,
+almost all in the layer the framework does <em>not</em> cover — hub failover, PTY-injection safety,
+authorization, and the stop-hook mechanism that makes &quot;the agent never knows&quot; true. None are
+fatal to the design; all are cheap to fix now because zero relay code exists yet. The single
+highest-leverage change is <strong>resequencing</strong> (phase 0 below), not any one fix.</p>
+<h2>keystone: the SDK is real (this was the biggest risk, and it clears)</h2>
+<p>Verified via raw <code>registry.npmjs.org</code> JSON, GitHub API, and downloaded+extracted tarballs —
+not doc summaries:</p>
+<ul>
+<li><code>chat</code>, <code>@chat-adapter/telegram</code>, <code>@chat-adapter/slack</code> are <strong>real, Vercel-maintained</strong>
+(<code>github.com/vercel/chat</code>, MIT, 2210★, <code>chat</code> 1.67M weekly downloads). <strong>[npm]</strong></li>
+<li><strong>All 18 <code>StateAdapter</code> methods</strong> match §3.6 exactly (read from <code>chat@4.34.0</code>&#39;s shipped
+<code>.d.ts</code>). <strong>[npm]</strong></li>
+<li>§2&#39;s engagement mapping is <strong>verbatim from the shipped types</strong> — &quot;ONLY called for mentions
+in unsubscribed threads,&quot; <code>subscribe()</code> &quot;(persists across restarts),&quot; and the exact
+&quot;subscribe when it&#39;s a 1:1 conversation…&quot; quote. The spine holds. <strong>[npm]</strong></li>
+<li>Bundle claim <strong>independently reproduced</strong>: 333 modules, 58.39 MB binary, +1.28 MB delta —
+every masthead number matches to the rounded decimal. <strong>[npm]</strong></li>
+</ul>
+<p>Two corrections that follow from this:</p>
+<ul>
+<li><strong>§9 &quot;adapters are beta&quot; is FALSE.</strong> No <code>beta</code> dist-tag exists; downloads are mature-tier.
+The real risk is <strong>churn, not beta</strong>: <code>@chat-adapter/slack</code> has 49 published versions in
+~6.5 months, <code>telegram</code> 23 in ~5 months (~1–2 releases/week), and <code>chat</code> pulls a
+beta-tagged transitive <code>@workflow/serde</code>. &quot;Pin exact versions + smoke test&quot; is right; the
+<em>stated reason</em> is wrong. <strong>[npm]</strong></li>
+<li><strong>&quot;+1.3 MB verified&quot; leaves no receipt.</strong> <code>package.json</code>/<code>bun.lock</code>/<code>node_modules</code> in the
+working tree have <strong>zero</strong> trace of these deps — the compile was a throwaway probe. True as
+&quot;was run,&quot; misleading as &quot;reproducible from repo state.&quot; Commit a pinned smoke-build script
+so &quot;verified&quot; has a receipt. <strong>[code]</strong></li>
+</ul>
+<hr>
+<h2>BLOCKERS (ranked)</h2>
+<h3>failover &amp; concurrency — the hub is a single point of failure with no safety net</h3>
+<p><strong>1. Correlator loses every in-flight <code>p ask</code> on <em>any</em> hub restart, and the late reply is typed raw into a live PTY. [design]</strong>
+<code>pendingAsks</code> is an in-memory <code>Map</code> (§3.5), zero persistence; §6 cleanup tears down the bot
+without draining it. A routine upgrade restart — not just a crash — wipes every open ask. The
+dangerous half: if the human&#39;s &quot;yes&quot; lands after the old hub dies, it reaches a new hub with an
+empty Correlator, <code>correlator.take()</code> misses, and it <strong>free-falls to <code>deliver()</code> → <code>sendKeys(session,&quot;yes\r&quot;)</code></strong> —
+typed as literal input into whatever&#39;s on screen. (<code>yes</code> is also a real Unix binary → infinite
+loop at a shell prompt.)
+<em>Fix:</em> persist asks in a sqlite <code>pending_asks</code> table; on graceful teardown, reject/notify every
+open ask in-thread before killing the bot; on boot, sweep orphans so a stray late reply resolves
+against a durable &quot;is this thread mid-ask&quot; check instead of PTY free-fall. Add a distinct error
+code for &quot;registered-then-lost&quot; vs &quot;never-reached-hub&quot; so retries don&#39;t double-post.</p>
+<p><strong>2. Hub lease has no fencing token and no &quot;I lost it → stop polling&quot; kill switch → split-brain double-poll. [design]</strong>
+§3.8&#39;s winner &quot;refreshes the ttl on a timer&quot; with no compare-and-swap. <code>bot.initialize()</code> (§4) is
+a <strong>one-shot boot call</strong> — it never re-checks ownership. So an event-loop stall (big xterm render,
+registry <code>JSON.stringify</code>, sqlite write under contention — all plausible on this single-threaded
+runtime) can let the TTL lapse, a successor claims and starts polling, the stall ends, and the old
+hub&#39;s heartbeat blindly overwrites the row back — <strong>two pollers on one bot token → Telegram 409 on
+every cycle</strong>, potentially flapping forever. No clock skew needed; single machine.
+<em>Fix:</em> fencing token + CAS on every refresh (<code>UPDATE … WHERE pid=? AND acquiredAt=?</code>; 0 rows = lease
+lost → synchronously tear down <code>bot</code>). State actual TTL and refresh-interval numbers. Specify the
+non-hub claim-retry loop/cadence (implied in §6, never shown). Use the stored <code>pid</code> for a free
+<code>kill -0</code> liveness check.</p>
+<p><strong>3. <code>getUpdates</code> offset ownership is undesigned → duplicate or lost inbound on every failover. [design]</strong>
+Today <code>tgState.lastUpdateId</code> is in-process only <strong>[code, :928]</strong>. The new <code>StateAdapter</code> (§3.6) has
+<strong>no offset-shaped method</strong> — the offset lives inside <code>@chat-adapter/telegram</code>&#39;s black box. A failover
+constructs a fresh adapter with no carried offset: depending on the old adapter&#39;s ack timing, the new
+hub either <strong>re-injects already-delivered messages</strong> (double PTY injection) or <strong>permanently loses</strong>
+messages the old hub acked-but-didn&#39;t-process (Telegram never redelivers past an acked offset).
+Compounds with #2 during any split-brain window.
+<em>Fix:</em> persist the offset in <code>kv[&quot;relay:offset:telegram&quot;]</code>, written by RelayCore <strong>only after</strong> a
+message is fully processed — plus dedup by <code>update_id</code> in a small sqlite &quot;seen&quot; set. If the adapter
+exposes no raw-update/manual-ack hook, that&#39;s a <strong>dependency blocker</strong>, not a tweak — verify before
+phase 2.</p>
+<p><strong>4. The hub lease is built on the weaker of the two primitives the spec itself defines; sqlite contention is unhandled. [design]</strong>
+§3.6&#39;s <code>locks</code> table has a <code>token</code> column for fenced extend/release — but §3.8&#39;s lease uses plain <code>kv</code>
+(no token). The most safety-critical mutex in the system uses the weaker primitive. No <code>PRAGMA busy_timeout</code>
+anywhere (first <code>bun:sqlite</code> use in this codebase) → <code>SQLITE_BUSY</code> throws instead of queuing; if a broad
+<code>catch</code> in <code>claimHub()</code> can&#39;t tell <code>SQLITE_BUSY</code> from &quot;key exists,&quot; every racing daemon at boot concludes
+&quot;someone else won&quot; → <strong>permanent no-hub livelock</strong>. <code>forceReleaseLock</code> can also steal a lease from a
+live-but-stalled hub.
+<em>Fix:</em> build the lease on the token-bearing <code>locks</code> table; set <code>busy_timeout</code>; retry with jitter; handle
+<code>SQLITE_BUSY</code> distinctly; gate <code>forceReleaseLock</code> behind a <code>kill -0</code> pid check or a grace period &gt;&gt; TTL.</p>
+<p><strong>5. Zero delivery acknowledgement in either direction — messages silently vanish. [code+design]</strong>
+<code>deliver()</code> (§4) is fire-and-forget: the proxy branch isn&#39;t awaited, has no try/catch, and
+<code>touchLastTarget</code> runs <strong>regardless of success</strong>. Sibling daemon down/restarting → the human&#39;s reply
+(maybe a &quot;yes&quot;) disappears with <strong>no error posted back</strong> — which directly guts the pitch of &quot;reply like
+you&#39;d message a teammate.&quot; Outbound is equally unguarded: a <code>p hook stop</code> notify that fails to reach the
+hub can fail <strong>silently</strong>, so the one signal meant to say &quot;the agent needs you&quot; just doesn&#39;t fire.
+<em>Fix:</em> await + catch in <code>deliver()</code>; on failure post a visible error into the thread; gate
+<code>touchLastTarget</code> on success; make <code>p notify</code>/<code>p ask</code>/<code>p hook stop</code> check <code>ok</code> and exit non-zero loudly;
+reuse the existing <code>queue</code> table for a short retry/dead-letter window on cross-daemon sends.</p>
+<p><strong>6. No per-thread ordering, despite the lock primitive existing for it. [design]</strong>
+§4&#39;s RelayCore sketch never calls <code>acquireLock</code>. Two rapid replies in one thread (&quot;y&quot; then &quot;actually no&quot;
+answering a pending ask) can reach <code>correlator.take()</code> out of order — the wrong answer resolves the ask and
+<strong>the loser falls through to raw PTY injection</strong>. Same class as the timeout-vs-late-reply race (#minor) and
+the unreviewed <code>onAction</code> button path.
+<em>Fix:</em> serialize per-thread — wrap the whole inbound handler in the per-thread lock, or keep an in-memory
+per-thread promise chain. Never let a correlator-miss silently become a generic <code>deliver()</code>.</p>
+<h3>injection safety &amp; authorization — a phone-to-shell bridge with the guards missing</h3>
+<p><strong>7. Channel-mode &quot;authorization&quot; is agent-name lookup, not a human allowlist. [code+design]</strong>
+§2&#39;s routing graph gates only on &quot;does this agent name exist&quot; (<code>KN{known agent?}</code>). §3.1 config has <strong>no
+per-user allowlist</strong>. In a Slack channel, <strong>anyone who can <code>@mention</code> the bot can drive a terminal</strong>
+(&quot;@build-worker rm the deploy lock&quot;). Today&#39;s code at least pins one identity (<code>chatId === knownId || userId === knownId</code>, <strong>:1062-1064</strong>); the redesign trades that for &quot;whoever&#39;s in the channel&quot; with nothing
+filling the gap — and §9 doesn&#39;t even list it as open.
+<em>Fix:</em> per-agent authorized-user allowlist in <code>pty-mgr.config.json</code>, checked in <code>onMention</code>/<code>onSubscribed</code>
+before <code>deliver()</code>, independent of channel membership.</p>
+<p><strong>8. Zero sanitization/confirmation on the default delivery path — this is the real blast radius. [code]</strong>
+<code>onSubscribed</code> with no pending ask sends text <strong>straight</strong> to <code>deliver()</code> → <code>sendKeys</code> →
+<code>write()</code> <strong>(:296-307)</strong>, a raw PTY write. §3.1&#39;s own example spawns a bare <code>zsh</code>. A reply of <code>rm -rf ~</code>
+executes verbatim with the daemon&#39;s permissions; against a tool-enabled coding agent, any prompt-injection
+payload becomes its next literal instruction. The <code>p ask</code> y/n gate only covers asks the agent <em>chooses</em> to
+make — nothing guards unsolicited inbound, which is the common case.
+<em>Fix:</em> state a policy, don&#39;t hope. Minimum: per-session risk tiers (<code>relay.confirm: destructive-only|all|off</code>)
+with a preview/confirm step for anything routed at a shell session, before this faces a phone.</p>
+<p><strong>9. Relay credentials leak into every bridged session → bot-token exfil. [code, :51-54]</strong>
+<code>SAFE_ENV_KEYS</code> already carries <code>TELEGRAM_BOT_TOKEN</code> <strong>and</strong> <code>ANTHROPIC_API_KEY</code>/<code>OPENAI_API_KEY</code> into every
+spawned session; <code>wrap</code> gets the full unfiltered daemon env. A human reachable through the relay can ask the
+bridged agent to <code>echo $TELEGRAM_BOT_TOKEN</code> and <strong>exfiltrate the bot&#39;s own credential back out the same
+channel</strong> — full bot takeover, plus every other inherited secret. §3.1 proposes adding the Slack tokens to
+this same pattern.
+<em>Fix:</em> exclude relay creds (and ideally the API keys) from <code>SAFE_ENV_KEYS</code> and from <code>wrap</code>&#39;s base env —
+denylist subtraction on <code>...process.env</code>, not just an allowlist overlay.</p>
+<p><strong>10. No origin authentication on the socket protocol → identity spoofing / approval phishing. [code]</strong>
+<code>tg-send</code>/<code>tg-wait</code> already accept a caller-supplied <code>session</code> with no verification (<strong>:1400, :1420-1423</strong>).
+§7&#39;s new <code>origin:{daemon,session,agent,cwd}</code> is described the same way — self-asserted, no signing. The relay
+raises the stakes: a human is meant to trust <code>[agent]</code>-prefixed messages when approving a <code>p ask</code>, so any local
+process in <strong>any</strong> session can forge <code>origin.agent</code> to phish an approval for a destructive action under a
+trusted name.
+<em>Fix:</em> the daemon (not the caller) stamps identity-bearing <code>origin</code> fields from the actual connection context;
+never trust client-supplied values for anything shown to a human as identity.</p>
+<h3>routing correctness — the &quot;reply becomes the next turn&quot; magic has holes</h3>
+<p><strong>11. Cross-daemon reply never presses Enter — Flow D is dead on arrival. [code, :1287-1299]</strong>
+<code>deliver()</code>&#39;s remote branch and §3.9 proxy <code>{cmd:&quot;send&quot;, args:{text}}</code>. The real <code>send</code> handler defaults
+<code>enter=false</code> → takes the <code>sendKeys(name, text)</code>-only branch, <strong>no <code>\r</code> ever sent</strong>. Every <em>other</em> caller in
+the codebase passes <code>enter:true</code> (flow <code>:2537</code>, CLI <code>:3238</code>) — the spec&#39;s &quot;reuse&quot; is the lone caller that omits
+it. 100% reproducible; every cross-daemon reply sits as unsubmitted text.
+<em>Fix:</em> <code>args:{ text, enter:true }</code> in both the sketch and §3.9.</p>
+<p><strong>12. No idle-gate before injection, and multi-line replies never submit. [code, :296-307, :508]</strong>
+<code>sendKeys</code> → <code>write()</code> is a raw PTY write with <strong>no</strong> notion of &quot;is the target at a prompt.&quot; Landing text
+mid-turn, in a pager, in <code>vim</code>, or at a <code>sudo</code> prompt does whatever those bytes do there. Worse: <code>write()</code>
+wraps any text containing <code>\n</code> as bracketed paste (<code>\x1b[200~…\x1b[201~</code>), so <code>deliver()</code>&#39;s local
+<code>sendKeys(session, text + &quot;\r&quot;)</code> on a multi-line reply puts the <strong><code>\r</code> inside the paste bracket</strong> → readline
+buffers it, never submits. Multi-line phone replies silently don&#39;t land, for a second independent reason from
+#11. The flow engine already solved this exact problem with <code>sendFlowMessageConfirmed</code>/<code>waitForFlowSessionReady</code>
+(<strong>:2542, :2561</strong> — send, poll the transcript for acceptance, nudge with a bare Enter) and the relay reuses
+<strong>none</strong> of it.
+<em>Fix:</em> two writes (text, delay, separate <code>\r</code>), and a best-effort acceptance check before declaring &quot;delivered&quot; —
+adapt <code>sendFlowMessageConfirmed</code> rather than fire-and-forget.</p>
+<p><strong>13. The flagship channel example may never fire the mechanism it depends on. [npm+design]</strong>
+§2 ties mention-detection to <code>RELAY_BOT_USERNAME</code>/<code>message.isMention</code> — i.e. mentions of the <strong>bot&#39;s own handle</strong>.
+But Flow C&#39;s example is <code>@build-worker restart the api</code> — the <strong>agent name</strong>, not the bot. Unless <code>build-worker</code>
+is itself a mentionable Slack identity (contradicts the single-bot-identity model), Slack emits no mention event,
+<code>onNewMention</code> never fires, and per §2&#39;s own contract the message is <strong>invisible to RelayCore</strong> — dropped with no
+feedback.
+<em>Fix:</em> resolve the addressing grammar before build — either <code>@ptybot @build-worker …</code> (contradicts every example)
+or run <code>parseAddress</code> on all channel messages, which means it can&#39;t use <code>onNewMention</code> as the gate. Verify against
+the SDK&#39;s real mention semantics first.</p>
+<h3>the &quot;agent never knows&quot; mechanism — undesigned where it counts</h3>
+<p><strong>14. Cursor&#39;s stop-hook is confirmed broken; &quot;any agent&quot; is false today. [docs]</strong>
+§7 treats the three CLIs as symmetric. They aren&#39;t: Claude Code and Codex both ship <code>last_assistant_message</code>
+inline in the Stop hook (works). <strong>Cursor&#39;s <code>afterAgentResponse</code> does NOT fire in headless CLI mode</strong> —
+acknowledged by Cursor&#39;s team as a known gap, still open (forum, 2026-03-30). It needs a different path
+(<code>--output-format stream-json</code> + the generic <code>stop</code> hook).
+<em>Fix:</em> stop writing &quot;one small adapter per CLI&quot; as three equal afternoons. Descope Cursor from v1 explicitly, or
+design its stream-json path separately. The vision says &quot;any agent&quot; — it isn&#39;t, yet.</p>
+<p><strong>15. The <code>onQuestion</code> trigger is undesigned and the spec contradicts itself on it. [docs+design]</strong>
+§7 makes <code>onQuestion</code> the <strong>default</strong> trigger (it gates every assistant-mode message); §9 simultaneously lists the
+trigger default as <strong>still open</strong>. And nothing defines <em>how</em> a question is detected — regex on &quot;?&quot;? an LLM classifier
+(cost, latency, another failure mode)? Turn-final coding-agent text is full of rhetorical and real questions;
+false positives spam you (breaks &quot;no babysitting&quot;), false negatives leave a real blocking question silent and the
+agent stalled — <strong>the exact failure the vision exists to kill.</strong>
+<em>Fix:</em> name the detection mechanism, test it against a corpus of real Claude Code/Codex turn-final messages, and get
+an actual sign-off on the default. It&#39;s an unmade decision wearing a decided hat.</p>
+<p><strong>16. One-shot <code>--print</code> agents are likely the <em>majority</em> case, left as a shrug. [design]</strong>
+§9 lists this as open with no lean. It isn&#39;t niche: pty-mgr&#39;s own flow engine spawns <code>codex --yolo</code> and non-interactive
+<code>claude</code> turns; chain-execution is the stated product mission. For a one-shot agent there is <strong>no process left to inject
+into</strong> — &quot;your reply arrives as its next input&quot; is categorically false for what may be most usage.
+<em>Fix:</em> pick respawn/resume — on reply, spawn a fresh <code>--continue</code>/<code>--resume</code> invocation seeded with the reply (both
+Claude Code and Codex support session resume), not <code>sendKeys</code> into a dead PTY. Make it a real design.</p>
+<hr>
+<h2>SERIOUS</h2>
+<ul>
+<li><strong>17. <code>lastTarget</code> is <code>tgState.lastSession</code> renamed, not fixed. [code+design]</strong> <code>touchLastTarget</code> overwrites on
+every deliver (§4) — same last-write-wins shape as today&#39;s bug (<strong>:1400, :1077-1081</strong>). And Telegram 1:1 DMs have
+no <code>message_thread_id</code>, so §3.2&#39;s thread id collapses to one id per human — <code>Directory.forThread</code> can&#39;t disambiguate
+multiple agents either. The <em>primary shipped scenario</em> (phase 2, Telegram assistant mode) has no better answer than
+today&#39;s misroute. <em>Fix:</em> route to whichever agent is actually <strong>awaiting a reply</strong>, or require re-addressing when &gt;1
+agent is active in a DM; don&#39;t ship &quot;&gt;1 agent per flat DM&quot; as solved.</li>
+<li><strong>18. Dead/killed session + stale bind → uncaught throw in the shared hub. [code]</strong> <code>kill</code> doesn&#39;t clear
+<code>bind:</code>/<code>thread4session</code>/<code>lastTarget</code>; <code>write()</code> throws on an exited session (<strong>:297-299</strong>). A reply in a killed
+session&#39;s still-subscribed thread → <code>deliver()</code>&#39;s local branch throws synchronously — and because <strong>one hub serves
+every daemon</strong>, one stale reply can take down routing for everyone. <em>Fix:</em> try/catch <code>deliver()</code>, clear the bind on
+failure and notify the thread; hook session removal to evict binds.</li>
+<li><strong>19. <code>@agent</code> collides across daemons → silent misroute. [design]</strong> <code>agent:&lt;name&gt;</code> (§3.4) has no daemon qualifier;
+two daemons with a &quot;build&quot; agent → last registration wins, no error. §9 lists it open but §10 ships <code>@agent</code>
+addressing without gating on it. <em>Fix:</em> namespace the key <code>agent:&lt;daemon&gt;/&lt;name&gt;</code>; return &quot;ambiguous&quot; on collision.</li>
+<li><strong>20. Registry publication defeats daemon isolation for daemons that never opted in. [code+design]</strong> §3.7 writes the
+registry file <strong>unconditionally</strong> on boot; CLAUDE.md sells <code>p daemon @proj</code> as <em>isolated</em>. Post-relay, every daemon
+publishes an enumerable session/cwd list and becomes proxy-<code>send</code>-targetable by the hub. Also a regression from a
+proven pattern: <code>p daemons</code>/<code>listDaemonSockets()</code> (<strong>:1486-1506, :3118-3145</strong>) already do <strong>live socket probes</strong>
+instead of trusting a passive mtime heartbeat — §3.7 reinvents it weaker, and §3.7-vs-§6 disagree on write cadence
+with no staleness threshold and no reaper for unclean deaths. <em>Fix:</em> opt-in registry publication; reuse
+<code>listDaemonSockets()</code> + <code>status</code> probe for liveness instead of mtime.</li>
+<li><strong>21. No observability surface. [design]</strong> No <code>p relay status</code>/<code>threads</code>/<code>inspect</code>. To debug a misroute you read daemon
+stderr — which <em>is</em> babysitting a terminal, the thing being eliminated. <em>Fix:</em> <code>p relay status</code> (hub identity, provider
+connectivity, session count) and <code>p relay threads</code> (bind/lastTarget dump), phase 3.</li>
+<li><strong>22. Migration is all-or-nothing; <code>NO_HUB</code> behavior is undefined. [code+design]</strong> Today&#39;s <code>p tg</code> is synchronous and
+self-contained (set two env vars, done). §8 makes <code>tg-send</code>/<code>tg-wait</code> <strong>aliases of hub-dependent</strong> <code>relay-*</code>, inserting
+a new <code>NO_HUB</code> failure into a path that was simple — a straight regression for the single-user who never set up a hub.
+The spec defines the code but never says what the CLI <em>does</em> with it. <em>Fix:</em> define <code>NO_HUB</code> CLI behavior; keep the
+direct-poll path as the zero-hub fallback rather than deleting it, at least until hub election has runway.</li>
+<li><strong>23. Rate limits + markdown-dialect translation unspecified. [docs+design]</strong> One bot relaying many concurrent chain
+agents will hit Telegram/Slack per-bot/per-chat throttles — no queue/coalesce/backoff mentioned → 429s under fan-out.
+And turn-final text is full of code fences/bold; Telegram needs <code>parse_mode</code> with strict escaping (a <code>parse_mode</code> set
+without correct escaping is a 400 — the single most common Telegram-bot bug); Slack <code>mrkdwn</code> is a third dialect. (Raw
+ANSI is <em>not</em> a problem — <code>capture()</code> renders through <code>@xterm/headless</code> first.) <em>Fix:</em> a backpressure policy and a
+per-platform formatting/escaping policy; add both to §9.</li>
+</ul>
+<h2>MINOR</h2>
+<ul>
+<li><strong>24. Timeout-vs-late-reply race [design]:</strong> even on a healthy hub, the Correlator timer firing as a genuine late reply
+arrives is a coin flip; the loser falls through to raw PTY injection. Prefer the resolve within a small grace window.</li>
+<li><strong>25. <code>onAction</code> (button y/n) unreviewed [design]:</strong> wired in §4 boot but no RelayCore method sketched; unverified it
+routes through the same <code>take()</code> gate as a typed reply — if a human can both click and type, same double-resolve risk
+as #6.</li>
+<li><strong>26. <code>parseAddress</code> has no defined grammar [design]:</strong> robustness against text that merely contains <code>@</code> (emails,
+<code>user@host</code>, handles) is unspecified; overlaps with #19/#13.</li>
+<li><strong>27. Graceful hub handoff vs. Telegram long-poll [design]:</strong> teardown can&#39;t abort an in-flight ~50s long-poll; a
+successor claiming immediately may 409 against the outgoing hub. Cosmetic, but can delay the successor&#39;s first poll.</li>
+<li><strong>28. Line refs are stale:</strong> spec pinned &quot;@ v1.4.3&quot;; code is v1.5.0 / 3400 lines. Anchors are close but drifting;
+re-pin before build.</li>
+</ul>
+<hr>
+<h2>missing from §9&#39;s open-decisions list (it lists knobs, not the make-or-break forks)</h2>
+<p>§9&#39;s six forks (trigger default, addressing grammar, hub scope, telegram mode…) are real but mostly <em>tuning</em>. The
+decisions that determine whether it works <strong>at all</strong> are absent:</p>
+<ol>
+<li><strong><code>NO_HUB</code> CLI behavior</strong> (#22) — retry / fail-fast / no-op?</li>
+<li><strong><code>onQuestion</code> detection</strong> — heuristic vs model call, and its false-pos/neg tolerance (#15).</li>
+<li><strong>One-shot <code>--print</code> agents</strong> — respawn/resume vs interactive-only (#16).</li>
+<li><strong>Per-platform <code>parse_mode</code>/escaping policy</strong> (#23).</li>
+<li><strong>Rate-limit / backpressure policy</strong> (#23).</li>
+<li><strong>Reuse the existing flow-engine adapter parser</strong> for stop-hook vs a second turn-final-text extractor (see phase 0).</li>
+<li><strong>Authorization model</strong> — per-user allowlist, or channel-membership = terminal access (#7).</li>
+</ol>
+<h2>recommended resequencing — do this before phase 1</h2>
+<p>§10 builds PtyState (phase 1) then RelayCore+Telegram (phase 2) <strong>before</strong> the beta-adapter smoke test even runs. The
+riskiest unknowns should gate the bet, not ride along as a footnote. Insert:</p>
+<p><strong>Phase 0 (prove the bet):</strong></p>
+<ul>
+<li>Pin exact adapter versions and <strong>commit</strong> a smoke-build script (gives &quot;+1.3 MB verified&quot; a receipt).</li>
+<li><strong>Kill-the-hub-mid-poll</strong> test against a real throwaway bot over hours — verify offset ack/failover behavior (#3) and
+whether the adapter exposes a manual-ack/raw-update hook. If it doesn&#39;t, that&#39;s a go/no-go on the dependency.</li>
+<li>Decide <strong>one-shot handling</strong> (#16), the <strong><code>onQuestion</code> detector</strong> (#15), and the <strong>authorization model</strong> (#7) — these
+are design, not code, and they change everything downstream.</li>
+<li>Decide whether stop-hook <strong>reuses <code>pty-mgr.config.json</code>&#39;s <code>adapters.assistant</code> parser</strong> (already extracts turn-final
+text well enough to drive <code>p flow run</code> today) instead of inventing a second extractor. Building two &quot;parse Claude Code&#39;s
+final message&quot; implementations is exactly the duplication the steering docs warn against.</li>
+</ul>
+<p>Then phase 1 onward as written, with the failover/injection/auth fixes folded into the relevant phase.</p>
+<h2>what&#39;s solid (steelman — this isn&#39;t one-sided)</h2>
+<ul>
+<li>The Chat SDK subscribe/unsubscribe ↔ assistant/channel mapping (§2) is <strong>real and correctly sourced</strong>, not invented.</li>
+<li>Claude Code and Codex genuinely hand back turn-final text inline now — the core &quot;agent never knows&quot; trick is <strong>less
+hand-wavy than it looks for 2 of 3 CLIs</strong>.</li>
+<li>All four named platforms (Telegram/Slack/Teams/WhatsApp) have real Chat SDK adapters today, so the roadmap is
+<strong>deliverable</strong> — <em>if</em> you accept the framework lock-in.</li>
+<li><code>requestSocket</code> already <strong>rejects cleanly</strong> on a dead hub (<strong>:1441-1472</strong>), so blocked <code>p ask</code> callers get a fast error,
+not a hang — a good primitive the design reuses correctly.</li>
+<li><strong>Zero relay code exists yet</strong> — every fix above is still cheap.</li>
+</ul>
+<h2>one honest tension to name in the doc</h2>
+<p>Adopting Chat SDK trades &quot;no platform lock-in&quot; for a <strong>new</strong> lock-in: a single-vendor, &lt;7-month-old framework with
+weekly churn, vs. the old design&#39;s direct calls to Telegram&#39;s years-stable Bot API. That may well be the right trade —
+the SDK genuinely gives you Slack/Teams/WhatsApp for near-free — but it <strong>contradicts CLAUDE.md&#39;s stated ethos</strong>
+(&quot;single-file, no dependencies beyond <code>@xterm/headless</code>, no build step&quot;) and the doc never names it. Make it a <em>made</em>
+decision, not a buried one.</p>
+
+
+  </main>
+  <footer class="foot"><span>pty-mgr — messaging relay gap analysis</span><span>Mentiko design system · dark</span></footer>
+</div>
+</body>
+</html>
