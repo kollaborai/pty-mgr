@@ -489,4 +489,26 @@ describe('daemon protocol', () => {
       expect(typeof res.status.sessions.total).toBe('number');
     });
   });
+
+  describe('double start', () => {
+    it('reports already running instead of a fresh pid', async () => {
+      // parent path (no __PTY_DAEMON_CHILD): forks a probe child that finds
+      // our live daemon on the socket. It must say so — not "started" with
+      // the pid of a probe that is already dead.
+      const env = { ...process.env };
+      delete env.__PTY_DAEMON_CHILD;
+      const proc = Bun.spawn(['bun', 'bin/pty-mgr.mjs', `@${DAEMON_NAME}`, 'daemon'], {
+        env,
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+      const out = await new Response(proc.stdout).text();
+      await proc.exited;
+      expect(out).toContain('already running');
+      expect(out).not.toContain('started  pid=');
+      // and the probe left the real daemon untouched
+      const res = await sendCmd({ cmd: 'status' });
+      expect(res.ok).toBe(true);
+    }, 10000);
+  });
 });

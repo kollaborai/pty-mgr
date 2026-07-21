@@ -404,14 +404,21 @@ describe('cli: with daemon', () => {
         'spawn',
         'watch-changing',
         'zsh',
-        '-lc',
+        // -f (no rc files): a login shell can take seconds to boot under
+        // full-suite load, starving the watch window before the first tick
+        '-fc',
         // keep emitting for ~9s so the watch subprocess's two captures always
         // overlap live output even under full-suite load (session is removed
         // right after the assertion, so this does not slow the suite down).
         'i=0; while [ $i -lt 300 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done',
       );
-      await new Promise(r => setTimeout(r, 250));
-      const r = runDaemon('watch', 'watch-changing', '120ms');
+      // wait until the ticker is actually rendering, not a fixed sleep
+      for (let i = 0; i < 40; i++) {
+        const cap = runDaemon('capture', 'watch-changing', '5');
+        if (cap.stdout.includes('tick-')) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const r = runDaemon('watch', 'watch-changing', '400ms');
       expect(r.exitCode).toBe(0);
       expect(r.stdout).toBe('working');
       runDaemon('remove', 'watch-changing');
@@ -424,14 +431,20 @@ describe('cli: with daemon', () => {
         'spawn',
         'watch-glob-changing',
         'zsh',
-        '-lc',
+        // -f (no rc files): see the test above
+        '-fc',
         // keep emitting for ~9s so the watch subprocess's two captures always
         // overlap live output even under full-suite load (session is removed
         // right after the assertion, so this does not slow the suite down).
         'i=0; while [ $i -lt 300 ]; do echo tick-$i; i=$((i+1)); sleep 0.03; done',
       );
-      await new Promise(r => setTimeout(r, 250));
-      const r = runDaemon('watch', 'watch-glob-*', '120ms');
+      // wait until the ticker is actually rendering, not a fixed sleep
+      for (let i = 0; i < 40; i++) {
+        const cap = runDaemon('capture', 'watch-glob-changing', '5');
+        if (cap.stdout.includes('tick-')) break;
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const r = runDaemon('watch', 'watch-glob-*', '400ms');
       expect(r.exitCode).toBe(0);
       expect(r.stdout).toBe('working');
       runDaemon('remove', 'watch-glob-*');
