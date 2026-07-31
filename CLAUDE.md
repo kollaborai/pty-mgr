@@ -41,6 +41,7 @@ The `demo` command is a smoke test; `bun test` is the regression suite.
 ```
 p daemon                             # start daemon (forks to background)
 p daemon @myproject                  # named daemon (isolated sessions)
+p daemon @@chatroom                  # chat room: every session hears every other
 p spawn <name> [cmd] [args...]       # create session
 p send <name> <text>                 # send text + enter
 p capture <name> [lines]             # get rendered screen
@@ -85,6 +86,13 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   from the front of argv only — leading token, or trailing a leading
   `daemon`/`d` command. Later `@`-tokens are preserved as data so payloads like
   `send agent "@everyone …"` survive.
+- A chat room (`p daemon @@name`) is `p link` with N members, not a second
+  mechanism: `turn` only picks a different target list (every live session but
+  the speaker, derived — so spawning into a running room joins it), prefixes the
+  body with the speaker's name, and reuses the same dedup, idle gate and
+  delivery. `@@` is parsed by `splitDaemonArgs` and only acted on by `p daemon`;
+  `CHATROOM` is a daemon-local flag that `p link all` / `p unlink all` toggle at
+  runtime. Pairwise links are refused while room mode is on.
 - `p link a b` is the unsupervised sibling of `p flow`. The agent CLI's own
   end-of-turn hook (claude `Stop` / codex `notify`, installed by
   `installClaudeHook` in `lib/msg-relay.mjs` and shared with the relay) posts

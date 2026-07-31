@@ -283,6 +283,30 @@ describe("splitDaemonArgs", () => {
     expect(daemon).toBe(DEFAULT_DAEMON);
     expect(args).toEqual([]);
   });
+
+  it("reads @@name as the same daemon, plus a request for room mode", () => {
+    const leading = splitDaemonArgs(["@@standup", "spawn", "x"]);
+    expect(leading.daemon).toBe("standup");
+    expect(leading.room).toBe(true);
+    expect(leading.args).toEqual(["spawn", "x"]);
+
+    const trailing = splitDaemonArgs(["daemon", "@@standup"]);
+    expect(trailing.daemon).toBe("standup");
+    expect(trailing.room).toBe(true);
+    expect(trailing.args).toEqual(["daemon"]);
+  });
+
+  it("does not flag room mode for a single @ or --daemon", () => {
+    expect(splitDaemonArgs(["@proj", "list"]).room).toBe(false);
+    expect(splitDaemonArgs(["--daemon", "proj", "list"]).room).toBe(false);
+    expect(splitDaemonArgs([]).room).toBe(false);
+  });
+
+  it("still preserves a later @@-token as data", () => {
+    const { daemon, args } = splitDaemonArgs(["send", "agent", "@@everyone ship it"]);
+    expect(daemon).toBe(DEFAULT_DAEMON);
+    expect(args).toEqual(["send", "agent", "@@everyone ship it"]);
+  });
 });
 
 describe("shellQuote", () => {

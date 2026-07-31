@@ -117,6 +117,7 @@ Every command (`p --help`):
 |---------|-------------|
 | `p daemon` | Start daemon (forks to background) |
 | `p daemon @myproject` | Named daemon (isolated sessions) |
+| `p daemon @@chatroom` | Chat room: every session hears every other |
 | `p status` | Daemon info + config |
 | `p config` | Show current config |
 | `p config screen 100x50` | Set default terminal size |
@@ -142,9 +143,10 @@ Every command (`p --help`):
 | `p link <a> <b> --note <text>` | Append steering text to every relayed turn |
 | `p link <a> <b> --max <n>` | Stop the ping-pong after n hops per side |
 | `p link <a> <b> --one-way` | `a → b` only |
-| `p link` / `p links` | List links + last relay status |
+| `p link all` | Chat room mode on (same as `@@` at boot) |
+| `p link` / `p links` | List links + room + last relay status |
 | `p unlink <a> [b]` | Drop links touching `a` (or just `a ↔ b`) |
-| `p unlink all` | Drop every link |
+| `p unlink all` | Kill switch: drop every link, leave room mode |
 | `p rename <old> <new>` | Rename a session |
 | `p remove <name\|all\|glob*>` | Kill + remove |
 | `p log <name> on [jsonl\|raw\|rendered]` | Start logging |
@@ -235,10 +237,57 @@ only means anything while both sides are alive. Repeat turns, empty turns, and
 dead targets are dropped rather than injected; `p links` shows the last status
 per direction.
 
+### Chat rooms
+
+A chat room is the same thing with N members instead of a named pair. Start the
+daemon with a doubled `@` and every session spawned into it hears every other
+one, prefixed with the speaker's name:
+
+```
+p daemon @@chatroom
+
+p @@chatroom spawn advisor
+p @@chatroom send advisor "claude --dangerously-skip-permissions --model sonnet"
+p @@chatroom spawn bug-finder
+p @@chatroom send bug-finder "claude --dangerously-skip-permissions --model sonnet"
+p @@chatroom spawn coder
+p @@chatroom send coder "claude --dangerously-skip-permissions --model sonnet"
+
+p @@chatroom send bug-finder "Walk the code and tell me the first bug you find."
+```
+
+Every turn goes out to everyone else as `bug-finder: …` / `advisor: …` /
+`coder: …`, so three agents in one room stay tellable apart. There is nothing
+to wire: membership is being spawned there, and a session spawned into a room
+that is already talking joins it immediately. The speaker never hears its own
+turn back.
+
+`@@name` and `@name` select the same daemon — the second `@` only means
+anything to `p daemon`, which is what boots the room. Everywhere else it is a
+harmless way to keep typing the room's name the way you created it.
+
+```
+p link                 # room status, members, broadcast count, last hop
+  chat room: on  members=advisor, bug-finder, coder
+  broadcasts=3  last=bug-finder  ok (2)
+
+p unlink all           # kill switch: leave room mode, agents keep running
+p link all             # back on (also promotes a plain daemon to a room)
+p status               # shows "chat room: on (N broadcasts)"
+```
+
+`p unlink all` is worth knowing before you start one: N agents in a room each
+answer every message, so turns multiply in a way the two-agent ping-pong does
+not. It stops the broadcasting without killing the agents, so nothing in
+flight is lost.
+
+Pairwise `p link a b` is refused inside a room — everyone already hears
+everyone.
+
 `p link` vs `p flow`: a flow is a scripted workflow with a fixed turn order and
-a foreground process driving it. A link is just a wire — no cycle count, no
-script, no supervising process, and either side can be talked to by hand at any
-time.
+a foreground process driving it. A link (or a room) is just a wire — no cycle
+count, no script, no supervising process, and any member can be talked to by
+hand at any time.
 
 ## Agent Flows
 
