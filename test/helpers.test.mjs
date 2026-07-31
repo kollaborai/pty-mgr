@@ -179,9 +179,20 @@ describe("buildSafeEnv", () => {
   });
 
   it("ignores non-whitelisted keys from extra", () => {
+    // set on process.env too, so this covers the inherited side as well as the
+    // `extra` overlay. Must be restored: bun shares one process across test
+    // files, and a leaked LD_PRELOAD makes ld.so write a warning to the stderr
+    // of every child the CLI tests spawn afterwards (Linux only -- macOS has no
+    // ld.so, so the leak is invisible locally and only fails in CI).
+    const prior = process.env.LD_PRELOAD;
     process.env.LD_PRELOAD = "evil.so";
-    const result = buildSafeEnv({ LD_PRELOAD: "evil.so" });
-    expect(result.LD_PRELOAD).toBeUndefined();
+    try {
+      const result = buildSafeEnv({ LD_PRELOAD: "evil.so" });
+      expect(result.LD_PRELOAD).toBeUndefined();
+    } finally {
+      if (prior === undefined) delete process.env.LD_PRELOAD;
+      else process.env.LD_PRELOAD = prior;
+    }
   });
 
   it("returns empty object when no matching keys", () => {
