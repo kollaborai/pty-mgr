@@ -122,6 +122,18 @@ describe('chat room', () => {
     expect(await turn('advisor', 'back on the air')).toMatchObject({ linked: true, room: true });
   }, 30000);
 
+  it('stops broadcasting at --max total room turns', async () => {
+    await sendCmd({ cmd: 'unlink', name: 'all' });
+    await sendCmd({ cmd: 'link', name: 'all', args: { max: 2 } });
+    expect(await turn('advisor', 'standing by')).toMatchObject({ linked: true, room: true });
+    expect(await turn('coder', 'holding')).toMatchObject({ linked: true, room: true });
+    expect(await turn('advisor', 'acknowledged')).toMatchObject({ linked: false, reason: 'max hops reached' });
+    expect((await room()).broadcasts).toBe(2);
+    // unlink all is the documented full reset -- clears the cap along with the links
+    await sendCmd({ cmd: 'unlink', name: 'all' });
+    await sendCmd({ cmd: 'link', name: 'all' });
+  }, 30000);
+
   it('says so when the speaker is alone in the room', async () => {
     for (const n of ['bug-finder', 'coder', 'latecomer']) {
       await sendCmd({ cmd: 'remove', name: n });

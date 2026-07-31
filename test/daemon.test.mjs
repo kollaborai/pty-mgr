@@ -164,6 +164,41 @@ describe('daemon protocol', () => {
       expect(capRes.ok).toBe(true);
       expect(capRes.output).toContain('test123');
     });
+
+    it('broadcasts to every session with "all", same fan-out as capture/kill', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'bcast-a', args: { cmd: 'cat' } });
+      await sendCmd({ cmd: 'spawn', name: 'bcast-b', args: { cmd: 'cat' } });
+
+      const res = await sendCmd({ cmd: 'send', name: 'all', args: { text: 'hello everyone', enter: true } });
+      expect(res.ok).toBe(true);
+      expect(res.sent).toEqual(expect.arrayContaining(['bcast-a', 'bcast-b']));
+
+      await new Promise(r => setTimeout(r, 500));
+      for (const n of ['bcast-a', 'bcast-b']) {
+        const cap = await sendCmd({ cmd: 'capture', name: n, args: { lines: 10 } });
+        expect(cap.output).toContain('hello everyone');
+      }
+    });
+
+    it('reports one exited session in the batch without sinking the rest', async () => {
+      await sendCmd({ cmd: 'spawn', name: 'bcast-dead', args: { cmd: 'true' } });
+      await new Promise(r => setTimeout(r, 300)); // let `true` exit
+
+      const res = await sendCmd({ cmd: 'send', name: 'all', args: { text: 'still here', enter: true } });
+      expect(res.ok).toBe(true);
+      expect(res.sent).toEqual(expect.arrayContaining(['bcast-a', 'bcast-b']));
+      expect(res.sent).not.toContain('bcast-dead');
+      expect(res.failed.map(f => f.name)).toContain('bcast-dead');
+
+      await new Promise(r => setTimeout(r, 500));
+      const cap = await sendCmd({ cmd: 'capture', name: 'bcast-a', args: { lines: 10 } });
+      expect(cap.output).toContain('still here');
+    });
+
+    it('reports no match instead of throwing on an empty glob', async () => {
+      const res = await sendCmd({ cmd: 'send', name: 'nope-nothing-here*', args: { text: 'x' } });
+      expect(res).toMatchObject({ ok: false, error: 'no sessions matching: nope-nothing-here*' });
+    });
   });
 
   describe('kill + remove', () => {

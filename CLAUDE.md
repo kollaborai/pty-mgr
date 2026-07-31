@@ -92,7 +92,12 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   body with the speaker's name, and reuses the same dedup, idle gate and
   delivery. `@@` is parsed by `splitDaemonArgs` and only acted on by `p daemon`;
   `CHATROOM` is a daemon-local flag that `p link all` / `p unlink all` toggle at
-  runtime. Pairwise links are refused while room mode is on.
+  runtime. Pairwise links are refused while room mode is on. Dedup is exact-text
+  match only (`LAST_TURN_HASH`), so a room of agents that each keep finding a
+  new way to say nothing ("standing by", "holding") won't dedup-stop — that's
+  what `--max` guards: `p daemon @@name --max <n>` / `p link all --max <n>`
+  caps total room broadcasts (mirrors `link <a> <b> --max <n>`, `p link` shows
+  `broadcasts=N/max`), and `p unlink all` clears the cap along with the links.
 - `p link a b` is the unsupervised sibling of `p flow`. The agent CLI's own
   end-of-turn hook (claude `Stop` / codex `notify`, installed by
   `installClaudeHook` in `lib/msg-relay.mjs` and shared with the relay) posts
