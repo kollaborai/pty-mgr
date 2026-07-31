@@ -47,6 +47,9 @@ p capture <name> [lines]             # get rendered screen
 p attach <name>                      # interactive mode (ctrl-] detach)
 p view <name1> <name2> [interval]    # read-only split-pane live viewer
 p list                               # list sessions
+p link <a> <b>                       # relay each agent's finished turn to the other
+p link                               # list links + last relay status
+p unlink <a|all> [b]                 # drop links
 p kill <name|all|glob*>              # kill sessions
 p stop [all]                         # stop daemon(s)
 p flow list [--verbose]              # list configured agent workflows
@@ -82,6 +85,15 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   from the front of argv only — leading token, or trailing a leading
   `daemon`/`d` command. Later `@`-tokens are preserved as data so payloads like
   `send agent "@everyone …"` survive.
+- `p link a b` is the unsupervised sibling of `p flow`. The agent CLI's own
+  end-of-turn hook (claude `Stop` / codex `notify`, installed by
+  `installClaudeHook` in `lib/msg-relay.mjs` and shared with the relay) posts
+  the turn-final text to the daemon as `{cmd:"turn"}`; the daemon looks the
+  session up in the in-memory `LINKS` map and types the text into the linked
+  session through the ordinary `send` path. No orchestrator process, no cycle
+  count. Delivery is detached from the hook's request (the CLI blocks on its
+  own hook) and gated on a settled screen, since a dropped keystroke stalls the
+  loop with nobody watching to retry.
 - `p flow` is the agent-orchestration feature. All agent-specific behavior
   belongs in `pty-mgr.config.json`: adapters define how CLI transcripts are
   parsed for sent user messages and completed assistant messages; flows define

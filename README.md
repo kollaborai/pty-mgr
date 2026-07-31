@@ -138,6 +138,13 @@ Every command (`p --help`):
 | `p kill <name>` | Kill session |
 | `p kill all` | Kill all sessions |
 | `p kill <glob*>` | Kill matching sessions |
+| `p link <a> <b>` | Relay each agent's finished turn into the other |
+| `p link <a> <b> --note <text>` | Append steering text to every relayed turn |
+| `p link <a> <b> --max <n>` | Stop the ping-pong after n hops per side |
+| `p link <a> <b> --one-way` | `a → b` only |
+| `p link` / `p links` | List links + last relay status |
+| `p unlink <a> [b]` | Drop links touching `a` (or just `a ↔ b`) |
+| `p unlink all` | Drop every link |
 | `p rename <old> <new>` | Rename a session |
 | `p remove <name\|all\|glob*>` | Kill + remove |
 | `p log <name> on [jsonl\|raw\|rendered]` | Start logging |
@@ -185,6 +192,53 @@ p v writer reviewer
 The viewer enters the alternate screen, draws a header row with each session's
 name, refreshes both panes on the interval you set, and handles terminal resizes.
 Press `q` or `Ctrl-C` to exit. Requires at least 21 terminal columns.
+
+## Linked Agents
+
+`p link` wires two running agents mouth-to-ear. Each one's finished turn is
+typed into the other, so they keep going without an orchestrator process
+babysitting them.
+
+```
+p spawn advisor
+p send advisor "claude --dangerously-skip-permissions --model sonnet"
+p spawn bug-finder
+p send bug-finder "claude --dangerously-skip-permissions --model sonnet"
+
+p link advisor bug-finder
+p send bug-finder "Walk the code and tell me the first bug you find. Ask me how to fix it."
+```
+
+bug-finder reports the bug → it lands in advisor → advisor answers → the answer
+lands back in bug-finder → repeat, indefinitely, until you `p unlink`.
+
+How it works: the agent CLI's own end-of-turn hook is the trigger. `p link`
+installs claude's `Stop` hook (idempotent; codex uses its `notify` program —
+`p relay hook install` prints the line). When a turn ends, the hook hands the
+turn-final text to the daemon, which types it into the linked session with the
+ordinary `send` path. Same hook the [message relay](#telegram-remote-control)
+uses, so linking and chat bridging coexist.
+
+```
+p link                            # list links + last relay status
+  advisor -> bug-finder  relayed=3  ok
+  bug-finder -> advisor  relayed=3  ok
+
+p link a b --note "Reply in under 10 lines."   # steering appended to every hop
+p link a b --max 20                            # stop after 20 hops per side
+p link a b --one-way                           # a -> b only
+p unlink advisor                               # kill switch
+```
+
+Links live in the daemon and are dropped when a session is removed — a link
+only means anything while both sides are alive. Repeat turns, empty turns, and
+dead targets are dropped rather than injected; `p links` shows the last status
+per direction.
+
+`p link` vs `p flow`: a flow is a scripted workflow with a fixed turn order and
+a foreground process driving it. A link is just a wire — no cycle count, no
+script, no supervising process, and either side can be talked to by hand at any
+time.
 
 ## Agent Flows
 
