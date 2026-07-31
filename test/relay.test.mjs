@@ -3,7 +3,7 @@
 // into the pollers, so every addressed DM bounced with
 // "@daemon is not enrolled to 'undefined'".
 import { test, expect } from "bun:test";
-import { RelayRouter } from "../lib/msg-relay.mjs";
+import { RelayRouter, focusKey } from "../lib/msg-relay.mjs";
 
 const CFG = {
   entities: {
@@ -114,7 +114,7 @@ test("@session routes when the name is unique across enrolled daemons", async ()
 
 test("unresolvable @word with a focused target is treated as message content", async () => {
   const { router, delivered } = fakeRouter(["mon"]);
-  router.lastTarget.set("chat1", { daemon: "wbcv", session: "mon" });
+  router.lastTarget.set(focusKey("wbcv", "chat1"), { daemon: "wbcv", session: "mon" });
   await router.onInbound(ENTITY, "chat1", "@here check this", async () => {});
   expect(delivered).toEqual([{ target: { daemon: "wbcv", session: "mon" }, body: "@here check this" }]);
 });
@@ -154,7 +154,7 @@ test("an agent's DM turn moves bare-reply focus to it", async () => {
   try {
     router.sendDM = async () => {};
     await router.relayTurn("wbcv", "dev", "build finished");
-    expect(router.lastTarget.get("42")).toEqual({ daemon: "wbcv", session: "dev" });
+    expect(router.lastTarget.get(focusKey("wbcv", "42"))).toEqual({ daemon: "wbcv", session: "dev" });
     // two live sessions would normally bounce a bare message — focus from
     // the speaker's turn routes it instead
     await router.onInbound(ENTITY, "42", "nice, ship it", async () => {});
@@ -172,11 +172,55 @@ test("a failed DM send does not steal focus", async () => {
   try {
     router.sendDM = async () => { throw new Error("telegram down"); };
     await router.relayTurn("wbcv", "mon", "hello?").catch(() => {});
-    expect(router.lastTarget.get("42")).toBeUndefined();
+    expect(router.lastTarget.get(focusKey("wbcv", "42"))).toBeUndefined();
   } finally {
     delete process.env.RELAY_TEST_UNSET_TOKEN;
     delete process.env.RELAY_TEST_UNSET_CHAT;
   }
+});
+
+// ── focus is scoped per entity, not just per chat id ───────────────────
+// Telegram's private-chat id IS the human's own user id, so it's identical
+// across every bot they run. Two entities sharing a physical chat id must
+// not steal each other's focus.
+
+test("addressing one entity's daemon doesn't steal a bare reply meant for another entity", async () => {
+  const cfg = {
+    entities: {
+      work: { platform: "telegram", mode: "assistant", tokenEnv: "RELAY_TEST_UNSET_TOKEN", chatEnv: "RELAY_TEST_UNSET_CHAT" },
+      personal: { platform: "telegram", mode: "assistant", tokenEnv: "RELAY_TEST_UNSET_TOKEN2", chatEnv: "RELAY_TEST_UNSET_CHAT2" },
+    },
+    daemons: { workd: { entity: "work" }, persd: { entity: "personal" } },
+    enrollments: {},
+    supported: ["claude", "codex"],
+  };
+  const router = new RelayRouter(cfg);
+  router.discover = async () => {};
+  router.registry.set("workd", {
+    sock: "/dev/null", entity: { name: "work" },
+    sessions: new Map([["main", { cmd: "zsh", tier: 2, alive: true }]]),
+  });
+  router.registry.set("persd", {
+    sock: "/dev/null", entity: { name: "personal" },
+    sessions: new Map([["main", { cmd: "zsh", tier: 2, alive: true }]]),
+  });
+  const delivered = [];
+  router.deliver = async (target, body) => { delivered.push({ target, body }); return { ok: true, tier: 1 }; };
+
+  const WORK = { name: "work", ...cfg.entities.work };
+  const PERSONAL = { name: "personal", ...cfg.entities.personal };
+  const CHAT_ID = "555555"; // same physical Telegram user, both bots
+
+  await router.onInbound(WORK, CHAT_ID, "@workd hi", async () => {});
+  expect(delivered).toEqual([{ target: { daemon: "workd", session: "main" }, body: "hi" }]);
+
+  const replies = [];
+  await router.onInbound(PERSONAL, CHAT_ID, "hey, what's up", async (t) => replies.push(t));
+  expect(replies.join("\n")).not.toContain("not enrolled");
+  expect(delivered).toEqual([
+    { target: { daemon: "workd", session: "main" }, body: "hi" },
+    { target: { daemon: "persd", session: "main" }, body: "hey, what's up" },
+  ]);
 });
 
 // ── hook-capable echo suppression ──────────────────────────────────────
