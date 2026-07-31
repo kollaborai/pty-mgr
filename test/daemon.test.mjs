@@ -58,6 +58,21 @@ function waitForSocket(maxMs = 3000, interval = 100) {
   });
 }
 
+// `wrap` runs its command under `zsh -lic`, so a heavy login rc dominates the
+// wall clock: ~2s idle here, ~17s under a loaded suite. Polling the screen for
+// expected output races that startup and misreports a slow shell as a broken
+// one. Session exit is the deterministic "the command has run" signal the
+// daemon already exposes -- wait on it, then read the buffer once.
+async function waitForSessionExit(name, maxMs = 40000, interval = 200) {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const res = await sendCmd({ cmd: 'alive', name });
+    if (res.ok && !res.alive) return true;
+    await new Promise(r => setTimeout(r, interval));
+  }
+  return false;
+}
+
 async function startDaemon() {
   daemonProc = Bun.spawn(['bun', 'bin/pty-mgr.mjs', `@${DAEMON_NAME}`, 'daemon'], {
     env: { ...process.env, __PTY_DAEMON_CHILD: '1' },
@@ -223,9 +238,9 @@ describe('daemon protocol', () => {
       // Command substitution fires inside double quotes (the old
       // `a.includes(" ") ? '"'+a+'"'` quoting) but is inert inside the single
       // quotes shellQuote() now produces. `MARKER_` prints either way, and the
-      // substitution resolves *before* echo prints -- so once MARKER_ is on
-      // screen we can assert deterministically (no arbitrary sleep race) that
-      // the sentinel was NOT created.
+      // substitution resolves *before* echo prints -- so once the session has
+      // exited we can assert deterministically that the sentinel was NOT
+      // created.
       const dir = mkdtempSync(join(tmpdir(), 'pty-mgr-wrap-inject-'));
       const sentinel = join(dir, 'pwned');
       const res = await sendCmd({
@@ -234,20 +249,19 @@ describe('daemon protocol', () => {
       });
       expect(res.ok).toBe(true);
 
-      let printed = false;
-      for (let i = 0; i < 50; i++) {
-        await new Promise(r => setTimeout(r, 200));
-        const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 20 } });
-        if (cap.ok && cap.output && cap.output.includes('MARKER_')) { printed = true; break; }
-      }
-      expect(printed).toBe(true);
+      expect(await waitForSessionExit(res.name)).toBe(true);
+      const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 20 } });
+      expect(cap.output).toContain('MARKER_');
       expect(existsSync(sentinel)).toBe(false);
-    });
+      // needs a timeout above waitForSessionExit's budget: on the 5s default a
+      // slow `zsh -lic` times out, and bun then kills the dangling daemon --
+      // taking every later test in the file down with it
+    }, 45000);
 
     it('filters non-whitelisted client env from wrap', async () => {
       // wrap should inherit the daemon env but drop arbitrary client-supplied
       // vars. PATH (whitelisted) always prints; PTYMGR_EVIL_INJECT (not) must
-      // never reach the child. Poll until env has printed (PATH= visible).
+      // never reach the child. Read the buffer once `env` has exited.
       const res = await sendCmd({
         cmd: 'wrap',
         args: {
@@ -259,16 +273,11 @@ describe('daemon protocol', () => {
       });
       expect(res.ok).toBe(true);
 
-      let output = '';
-      for (let i = 0; i < 50; i++) {
-        await new Promise(r => setTimeout(r, 200));
-        const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 200 } });
-        output = (cap.ok && cap.output) || '';
-        if (output.includes('PATH=')) break;
-      }
-      expect(output).toContain('PATH=');
-      expect(output).not.toContain('PTYMGR_EVIL_INJECT');
-    });
+      expect(await waitForSessionExit(res.name)).toBe(true);
+      const cap = await sendCmd({ cmd: 'capture', name: res.name, args: { lines: 200 } });
+      expect(cap.output).toContain('PATH=');
+      expect(cap.output).not.toContain('PTYMGR_EVIL_INJECT');
+    }, 45000);
   });
 
   describe('bulk operations', () => {
