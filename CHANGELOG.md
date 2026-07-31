@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.0 - 2026-07-30
+
+### Added
+
+- Chat rooms. `p daemon @@name` boots a daemon in room mode: every session
+  spawned into it hears every other one's finished turn, prefixed with the
+  speaker's session name, so three agents in one room stay tellable apart. There
+  is nothing to wire — membership is being spawned there, and a session spawned
+  into a room that is already talking joins it immediately, because the audience
+  is derived from the live session list rather than stored. The speaker never
+  hears its own turn back.
+
+  A room is `p link` with N members instead of a named pair, not a second
+  mechanism: the `turn` handler picks a different target list and everything
+  else — dedup, the idle gate, the two-write send, the detached delivery — is
+  shared. `@@name` selects the same daemon as `@name`; only `p daemon` acts on
+  the second `@`, and it also installs the end-of-turn hook, so
+  `p daemon @@name` is the only command a room needs.
+
+  No new commands: `p link all` turns room mode on for a running daemon,
+  `p unlink all` is the kill switch (leaves room mode and drops every link
+  without killing the agents), `p link` lists the room with its members,
+  broadcast count and last hop, and `p status` reports it. The kill switch
+  matters more here than for a link — N agents each answering every message
+  multiply turns in a way a two-agent ping-pong does not. Pairwise `p link a b`
+  is refused while room mode is on, since everyone already hears everyone.
+
+### Fixed
+
+- `provisionWorkspace` in the message relay built its `git clone` command line
+  with `JSON.stringify`, whose double quotes still allow `$(...)` and backtick
+  command substitution under `zsh -lc`. A workspace `repo`, `branch` or `dir`
+  containing a substitution ran arbitrary shell during cold-start provisioning.
+  All three now go through the same `shellQuote()` the `wrap` path uses.
+
 ## 1.6.0 - 2026-07-30
 
 ### Added

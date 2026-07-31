@@ -1,6 +1,6 @@
 {
   "name": "@mentiko/pty-mgr",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/kollaborai/pty-mgr.git"
@@ -14,10 +14,10 @@
     "chat": "4.34.0"
   },
   "optionalDependencies": {
-    "@mentiko/pty-mgr-linux-x64": "1.6.0",
-    "@mentiko/pty-mgr-linux-arm64": "1.6.0",
-    "@mentiko/pty-mgr-darwin-x64": "1.6.0",
-    "@mentiko/pty-mgr-darwin-arm64": "1.6.0"
+    "@mentiko/pty-mgr-linux-x64": "1.7.0",
+    "@mentiko/pty-mgr-linux-arm64": "1.7.0",
+    "@mentiko/pty-mgr-darwin-x64": "1.7.0",
+    "@mentiko/pty-mgr-darwin-arm64": "1.7.0"
   },
   "exports": {
     ".": {
