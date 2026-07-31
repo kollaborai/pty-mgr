@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.6.0 - 2026-07-30
+
+### Added
+
+- `p link <a> <b>` wires two running agents mouth-to-ear: each one's finished
+  turn is typed into the other, so a review/advise loop keeps running with no
+  orchestrator process babysitting it. This is the unsupervised sibling of
+  `p flow` — no scripted turn order, no cycle count, and either side can still
+  be talked to by hand at any time. It reuses the agent CLI's own end-of-turn
+  hook rather than inventing a second mechanism: the `Stop` hook (shared with
+  the message relay, installed idempotently by `p link`; codex's `notify` line
+  is printed by `p relay hook install`) posts the turn-final text to the daemon,
+  which looks the session up and delivers it through the ordinary `send` path.
+  Links need no relay config and no chat entity.
+
+  `--note <text>` appends steering to every relayed turn, `--max <n>` caps the
+  hops per side, `--one-way` links a single direction. `p link` with no
+  arguments (or `p links`) lists every link with its relay count and the status
+  of its last hop; `p unlink <a|all> [b]` is the kill switch.
+
+  Delivery is detached from the hook's request — the CLI blocks on its own hook
+  — and gated on a settled screen, since a keystroke dropped into a repainting
+  TUI stalls the loop with nobody watching to retry. Repeat turns, empty turns
+  and dead targets are dropped rather than injected. Links are forgotten when a
+  session is removed and follow it across a rename, so `p links` never reports
+  a route that cannot fire.
+
+### Fixed
+
+- Chat focus in the message relay is now scoped per entity instead of per chat
+  id. A Telegram private-chat id *is* the human's own user id, so it is
+  identical across every bot they run: two entities sharing an admin stole each
+  other's focus, and a bare reply to one bot resolved to the session last
+  addressed on the other. Only reproduced with 2+ entities sharing a physical
+  chat id; single-bot setups were unaffected.
+
 ## 1.5.0 - 2026-07-18
 
 ### Added
