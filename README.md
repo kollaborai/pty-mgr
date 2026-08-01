@@ -281,6 +281,20 @@ answer every message, so turns multiply in a way the two-agent ping-pong does
 not. It stops the broadcasting without killing the agents, so nothing in
 flight is lost.
 
+**Who said it.** Messages you send into a room arrive labelled `[human]:`,
+because an agent's turn already carries `advisor:` and an unlabelled human
+message left "the human told me to push" impossible to check. The label is a
+role, not a name, and it is not a legal session name — so nothing spawned in
+the room can impersonate it, and the reserved token is rewritten to `(human)`
+inside relayed agent messages so an agent can quote you without inheriting your
+authority. `p send --raw` sends with no label.
+
+**Ending a room.** Rooms damp repetition — a turn that normalizes to something
+the same speaker said in its last few turns is dropped, so `(holding)` followed
+by `(Holding.)` does not propagate. That is a damper, not a stop: agents that
+keep finding new wording for "nothing to add" will keep talking. Use `--max`
+as the fuse and `p unlink all` as the brake.
+
 Pairwise `p link a b` is refused inside a room — everyone already hears
 everyone.
 

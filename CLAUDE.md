@@ -92,12 +92,25 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   body with the speaker's name, and reuses the same dedup, idle gate and
   delivery. `@@` is parsed by `splitDaemonArgs` and only acted on by `p daemon`;
   `CHATROOM` is a daemon-local flag that `p link all` / `p unlink all` toggle at
-  runtime. Pairwise links are refused while room mode is on. Dedup is exact-text
-  match only (`LAST_TURN_HASH`), so a room of agents that each keep finding a
-  new way to say nothing ("standing by", "holding") won't dedup-stop — that's
+  runtime. Pairwise links are refused while room mode is on. Dedup matches a
+  NORMALIZED form (case/punctuation/whitespace stripped) against the speaker's
+  last `TURN_MEMORY` turns, not an exact hash of the previous one — measured on
+  a real captured loop it drops ~1 in 4 messages, which damps re-punctuation
+  ("(holding)" / "(Holding.)") but not paraphrase, so a room of agents each
+  finding a NEW way to say nothing still won't dedup-stop — that's
   what `--max` guards: `p daemon @@name --max <n>` / `p link all --max <n>`
   caps total room broadcasts (mirrors `link <a> <b> --max <n>`, `p link` shows
   `broadcasts=N/max`), and `p unlink all` clears the cap along with the links.
+- Room provenance: a `send` into a room is prefixed `[human]:` (`HUMAN_LABEL`),
+  because an agent turn already carries `<speaker>:` while a human message used
+  to arrive unlabelled — which made "the human told me to push" unfalsifiable.
+  It is a ROLE derived from the transport, never a person's name. The token is
+  deliberately outside `SESSION_NAME_RE` (which cannot produce `[` or `]`), so
+  the grammar itself prevents a session from impersonating it — no collision
+  check to forget. `sanitizeSpeaker` rewrites `[human]` to `(human)` in relayed
+  agent bodies, since the daemon only prefixes line 1 and an agent could
+  otherwise put the reserved label on line 2 of its own turn. `send --raw` skips
+  the label.
 - `p link a b` is the unsupervised sibling of `p flow`. The agent CLI's own
   end-of-turn hook (claude `Stop` / codex `notify`, installed by
   `installClaudeHook` in `lib/msg-relay.mjs` and shared with the relay) posts
