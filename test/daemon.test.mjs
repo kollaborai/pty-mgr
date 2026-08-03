@@ -126,14 +126,35 @@ describe('daemon protocol', () => {
       expect(capRes.output).toContain('hello');
     });
 
-    it('rejects duplicate session names', async () => {
+    it('rejects duplicate names for a LIVE session', async () => {
+      const first = await sendCmd({
+        cmd: 'spawn',
+        name: 'dup-live',
+        args: { cmd: 'sleep', args: ['30'] },
+      });
+      expect(first.ok).toBe(true);
+
+      const res = await sendCmd({
+        cmd: 'spawn',
+        name: 'dup-live',
+        args: { cmd: 'echo', args: ['dup'] },
+      });
+      expect(res.ok).toBe(false);
+      expect(res.error).toBeTruthy();
+
+      await sendCmd({ cmd: 'remove', name: 'dup-live' });
+    });
+
+    it('reclaims the name of an EXITED session and reports the replacement', async () => {
+      // s1 ran `echo hello` above, so it has exited by now
       const res = await sendCmd({
         cmd: 'spawn',
         name: 's1',
         args: { cmd: 'echo', args: ['dup'] },
       });
-      expect(res.ok).toBe(false);
-      expect(res.error).toBeTruthy();
+      expect(res.ok).toBe(true);
+      expect(res.name).toBe('s1');
+      expect(res.replacedExitCode).toBe(0);
     });
   });
 

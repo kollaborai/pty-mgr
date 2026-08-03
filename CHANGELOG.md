@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.8.0 - 2026-08-02
+
+### Changed
+
+- `spawn` reclaims the name of an **exited** session instead of refusing it. A
+  dead session used to squat its own name, so re-running the command that
+  created it — the obvious way to restart a crashed dev server or agent — failed
+  with `session 'server' already exists`, and you had to know to `p remove` it
+  first. Only a **live** session is a collision now. The replacement is never
+  silent: the daemon returns `replacedExitCode` and the CLI prints
+  `(replaced exited session, exit N)`, so a post-mortem you were about to read
+  does not vanish without a word.
+
+### Added
+
+- Exited sessions are dropped an hour after they exit (`CORPSE_TTL_MS`, exported).
+  A session is kept past its death on purpose — `capture` still renders its final
+  screen, `info` still has its exit code, and `waitForExit` resolves immediately
+  instead of racing — but nothing bounded that, so a long-lived daemon pinned a
+  full scrollback buffer per corpse forever. `reapExpired()` runs lazily from
+  `spawn` and `list` rather than on a timer: the moments that grow or read the
+  registry are exactly the moments worth cleaning it. The durable record remains
+  the log file (`spawn --log`), which outlives both the window and a daemon
+  restart.
+
 ## 1.7.0 - 2026-07-30
 
 ### Added

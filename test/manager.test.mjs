@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { PtyManager, validateSessionName, buildSafeEnv, SAFE_ENV_KEYS } from '../lib/pty-manager.mjs';
+import { PtyManager, validateSessionName, buildSafeEnv, SAFE_ENV_KEYS, CORPSE_TTL_MS } from '../lib/pty-manager.mjs';
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -29,6 +29,42 @@ describe('PtyManager', () => {
     it('spawn duplicate name throws', () => {
       mgr.spawn('dup-name', 'zsh', []);
       expect(() => mgr.spawn('dup-name', 'zsh', [])).toThrow('already exists');
+    });
+
+    it('spawn reclaims the name of an EXITED session', async () => {
+      mgr.spawn('reclaim-me', 'zsh', ['-c', 'exit 3']);
+      await mgr.waitForExit('reclaim-me', 10000);
+      const deadPid = mgr.pid('reclaim-me');
+      expect(mgr.get('reclaim-me').isAlive()).toBe(false);
+
+      // a corpse must not squat the name -- respawn, don't throw
+      expect(() => mgr.spawn('reclaim-me', 'zsh', [])).not.toThrow();
+      expect(mgr.get('reclaim-me').isAlive()).toBe(true);
+      expect(mgr.pid('reclaim-me')).not.toBe(deadPid);
+    });
+
+    it('reapExpired drops corpses past the TTL, keeps fresh ones and the living', async () => {
+      mgr.spawn('long-gone', 'zsh', ['-c', 'exit 0']);
+      mgr.spawn('just-died', 'zsh', ['-c', 'exit 0']);
+      mgr.spawn('still-here', 'zsh', []);
+      await mgr.waitForExit('long-gone', 10000);
+      await mgr.waitForExit('just-died', 10000);
+
+      // backdate one corpse past the 1h window
+      mgr.get('long-gone').exitedAt = new Date(Date.now() - CORPSE_TTL_MS - 1000);
+
+      expect(mgr.reapExpired()).toEqual(['long-gone']);
+      expect(mgr.has('long-gone')).toBe(false);
+      expect(mgr.has('just-died')).toBe(true);    // still inspectable
+      expect(mgr.has('still-here')).toBe(true);   // never reap the living
+    });
+
+    it('capture still works on an exited session (why corpses are kept)', async () => {
+      mgr.spawn('post-mortem', 'zsh', ['-c', 'echo LAST-WORDS; exit 1']);
+      await mgr.waitForExit('post-mortem', 10000);
+      await sleep(500); // exit fires before the emulator has parsed the last write
+      expect(mgr.capture('post-mortem', 20)).toContain('LAST-WORDS');
+      expect(mgr.get('post-mortem').exitCode).toBe(1);
     });
 
     it('spawn with invalid name throws: empty', () => {
