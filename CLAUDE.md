@@ -78,7 +78,11 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   (`buildSafeEnv`) only filters *client-supplied* env overlays sent over the
   socket — on both `spawn` and `wrap` — so a socket client can't inject
   arbitrary vars (LD_PRELOAD, DYLD_INSERT_LIBRARIES, …). It does not restrict
-  inherited env.
+  inherited env. One exception: `PtyManager.spawn` strips Claude Code's
+  session-identity markers (`CLAUDE_SESSION_MARKERS`: `CLAUDECODE`,
+  `CLAUDE_CODE_CHILD_SESSION`, …). A daemon started from inside Claude Code
+  inherits them, and a claude child that sees `CLAUDE_CODE_CHILD_SESSION` saves
+  no transcript — so its Stop hook reads nothing and every link/room turn drops.
 - `wrap` shells out via `zsh -lic`; every cmd/arg token is single-quoted with
   `shellQuote()` so shell metacharacters in args are passed literally (no
   command injection).
@@ -110,7 +114,11 @@ a=attach, v=view, st=status, r/rm=remove, d=daemon, cfg=config, x=stop
   check to forget. `sanitizeSpeaker` rewrites `[human]` to `(human)` in relayed
   agent bodies, since the daemon only prefixes line 1 and an agent could
   otherwise put the reserved label on line 2 of its own turn. `send --raw` skips
-  the label.
+  the label, and so do slash commands and whitespace-only sends (`[human]:
+  /compact` is no longer a command). A room member's own `p send` is labelled
+  as that member, not `[human]`: the CLI passes `PTY_MGR_SESSION` /
+  `PTY_MGR_DAEMON`, and a sender that is a session of this daemon is never the
+  human. Provenance for honest agents, not a sandbox.
 - `p link a b` is the unsupervised sibling of `p flow`. The agent CLI's own
   end-of-turn hook (claude `Stop` / codex `notify`, installed by
   `installClaudeHook` in `lib/msg-relay.mjs` and shared with the relay) posts

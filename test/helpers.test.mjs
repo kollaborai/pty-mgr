@@ -7,7 +7,19 @@ import {
   shellQuote,
   composeSideBySideCaptureRows,
   parseAttachInput,
+  normalizeTurn,
 } from "../lib/pty-manager.mjs";
+
+describe("normalizeTurn", () => {
+  it("folds case, punctuation and whitespace", () => {
+    expect(normalizeTurn("(Holding.)")).toBe(normalizeTurn("  holding "));
+  });
+  it("keeps non-Latin and emoji-only turns distinct", () => {
+    expect(normalizeTurn("修复了解析错误")).not.toBe(normalizeTurn("测试全部通过"));
+    expect(normalizeTurn("测试全部通过。")).toBe(normalizeTurn("测试全部通过"));
+    expect(normalizeTurn("👍")).not.toBe(normalizeTurn("🎉"));
+  });
+});
 
 const DEFAULT_DAEMON = process.env.PTY_DAEMON || "default";
 

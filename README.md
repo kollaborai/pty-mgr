@@ -287,7 +287,9 @@ message left "the human told me to push" impossible to check. The label is a
 role, not a name, and it is not a legal session name — so nothing spawned in
 the room can impersonate it, and the reserved token is rewritten to `(human)`
 inside relayed agent messages so an agent can quote you without inheriting your
-authority. `p send --raw` sends with no label.
+authority. An agent in the room that runs `p send` from its own shell is
+labelled as itself, not as you. Slash commands (`/compact`, `/exit`) go through
+unlabelled so they still run, and `p send --raw` sends with no label.
 
 **Ending a room.** Rooms damp repetition — a turn that normalizes to something
 the same speaker said in its last few turns is dropped, so `(holding)` followed

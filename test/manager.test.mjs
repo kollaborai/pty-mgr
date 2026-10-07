@@ -642,6 +642,20 @@ describe('PtyManager', () => {
       expect(name).toBe('env-test');
     });
 
+    it('strips inherited Claude Code session markers from the child env', async () => {
+      // a daemon started inside Claude Code inherits these; a claude child that
+      // sees CLAUDE_CODE_CHILD_SESSION saves no transcript, so its turn hook is dead
+      const saved = process.env.CLAUDE_CODE_CHILD_SESSION;
+      process.env.CLAUDE_CODE_CHILD_SESSION = '1';
+      try {
+        mgr.spawn('marker-test', 'sh', ['-c', 'echo "child=[$CLAUDE_CODE_CHILD_SESSION]"; sleep 5']);
+        expect(await mgr.waitFor('marker-test', /child=\[/, 5000)).toContain('child=[]');
+      } finally {
+        if (saved === undefined) delete process.env.CLAUDE_CODE_CHILD_SESSION;
+        else process.env.CLAUDE_CODE_CHILD_SESSION = saved;
+      }
+    });
+
     it('spawn with cols/rows options', () => {
       mgr.spawn('size-test', 'zsh', [], {
         cols: 120,

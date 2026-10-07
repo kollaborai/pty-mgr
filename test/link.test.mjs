@@ -177,6 +177,19 @@ describe('turn relay', () => {
     expect((await links()).map((l) => `${l.from}->${l.to}`).sort()).toEqual(['a->b2', 'b2->a']);
     await sendCmd({ cmd: 'rename', name: 'b2', args: { newName: 'b' } });
   });
+
+  it('a reclaimed name does not inherit the dead sessions links', async () => {
+    await sendCmd({ cmd: 'spawn', name: 'phoenix', args: { cmd: 'sh', args: ['-c', 'sleep 0.3; exit 3'] } });
+    await sendCmd({ cmd: 'link', name: 'a', args: { to: 'phoenix' } });
+    const start = Date.now();
+    while (Date.now() - start < 10000 && (await sendCmd({ cmd: 'alive', name: 'phoenix' })).alive) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const res = await sendCmd({ cmd: 'spawn', name: 'phoenix', args: { cmd: 'cat' } });
+    expect(res.replacedExitCode).toBe(3);
+    expect((await links()).filter((l) => l.from === 'phoenix' || l.to === 'phoenix')).toEqual([]);
+    await sendCmd({ cmd: 'remove', name: 'phoenix' });
+  }, 30000);
 });
 
 describe('end-of-turn hook', () => {

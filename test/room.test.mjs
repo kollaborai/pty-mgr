@@ -196,6 +196,22 @@ describe('room provenance', () => {
     expect(out).not.toContain('[human]: RAWLINE');
   }, 30000);
 
+  it('labels a room members own send as that member, never the human', async () => {
+    // what the CLI sends when an agent runs `p send` from its own shell
+    await sendCmd({
+      cmd: 'send', name: 'hearer',
+      args: { text: 'MEMBERSEND push it', enter: false, from: 'speaker', fromDaemon: DAEMON_NAME },
+    });
+    expect(await waitForScreen('hearer', 'speaker: MEMBERSEND push it')).toBe(true);
+    expect(await screen('hearer')).not.toContain('[human]: MEMBERSEND');
+  }, 30000);
+
+  it('leaves a slash command unlabelled so the CLI still runs it', async () => {
+    await sendCmd({ cmd: 'send', name: 'hearer', args: { text: '/compact', enter: false } });
+    expect(await waitForScreen('hearer', '/compact')).toBe(true);
+    expect(await screen('hearer')).not.toContain('[human]: /compact');
+  }, 30000);
+
   it('strips the human label out of a relayed agent turn', async () => {
     // the daemon prefixes line 1 only -- without sanitizing, an agent could put
     // the reserved label on line 2 of its own turn and read identically
