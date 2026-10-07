@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.8.1 - 2026-10-07
+
+### Fixed
+
+- Links and rooms went silent when the daemon was started from inside Claude
+  Code (an agent running `p daemon`): every session inherited
+  `CLAUDE_CODE_CHILD_SESSION`, the spawned claude saved no transcript, and its
+  Stop hook had nothing to relay. `spawn` now strips Claude Code's
+  session-identity markers (`CLAUDE_SESSION_MARKERS`) from the child env.
+- Reclaiming an exited session's name, or the 1h corpse reap, no longer leaves
+  the old session's links, hop count and dedup memory attached to the name.
+- Rooms: an agent's own `p send` was labelled `[human]:`; it is now labelled as
+  that agent. Slash commands and whitespace-only sends are no longer labelled,
+  so `p send agent /compact` works in a room again.
+- Rooms: dedup normalized only `[a-z0-9]`, so any Chinese, Cyrillic or
+  emoji-only turn collapsed to an empty string and every later one from the same
+  speaker was dropped as a duplicate.
+- `unlink all` now clears dedup memory, so a re-armed room does not drop an
+  agent's first turn as a repeat of one from before the reset.
+
 ## 1.8.0 - 2026-08-02
 
 ### Changed
