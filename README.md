@@ -149,6 +149,7 @@ Every command (`p --help`):
 | `p unlink all` | Kill switch: drop every link, leave room mode |
 | `p rename <old> <new>` | Rename a session |
 | `p remove <name\|all\|glob*>` | Kill + remove |
+| `p remove-if-identity <name> <daemonId> <sessionId>` | Remove only the exact session occurrence |
 | `p log <name> on [jsonl\|raw\|rendered]` | Start logging |
 | `p log <name> off` | Stop logging |
 | `p spawn <name> --log [cmd]` | Spawn with logging (jsonl) |
@@ -161,6 +162,28 @@ Every command (`p --help`):
 | `p tg <message>` | Send a Telegram notification |
 | `p tg <message> --reply [--timeout N]` | Send and block for a reply |
 | `p demo` | Run self-test (no daemon needed) |
+
+### Identity-conditional removal
+
+Daemon `spawn` and `wrap` responses include `daemonId` and `sessionId`; `list`
+and `info` include them for each session. Save both from the occurrence you
+observed, then use `p remove-if-identity <name> <daemonId> <sessionId>`. The name
+must be exact; wildcards are rejected. The daemon compares and removes in one
+operation, so a replacement session or a restarted daemon cannot match an old
+token. A simultaneous spawn and removal is serialized: a successful removal
+applies only to the occurrence whose identity was supplied.
+
+For socket clients send `{ "cmd": "remove-if-identity", "name": "worker",
+"args": { "daemonId": "...", "sessionId": "..." } }`. A mismatch returns
+`STALE_IDENTITY`; an absent name returns `NOT_FOUND`; missing identities return
+`INVALID_IDENTITY`. `removeIfIdentityTo(socket, name, daemonId, sessionId)`
+is exported for Bun clients and returns `UNSUPPORTED` for older daemons and
+`OUTCOME_UNKNOWN` when the reply cannot be verified. The CLI reports the same
+codes. Raw protocol clients must treat an unknown-command response as unsupported.
+Never fall back to name-only removal if identities are absent or an outcome is
+uncertain. After a lost reply, retry only with the original identities: a retry
+may report `NOT_FOUND` or `STALE_IDENTITY`, and neither result establishes whether
+the first removal succeeded. Reinspect before taking any further action.
 
 `p watch <name> [interval]` captures the bottom 100 lines, waits `interval`
 (default `4s`; accepts `4s`, `1000ms`, or a bare millisecond value), captures
