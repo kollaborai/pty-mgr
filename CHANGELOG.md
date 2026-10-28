@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Daemon and session identities and exact identity-conditional removal protect
+  same-name successors from stale removal requests.
+
 ## 1.8.1 - 2026-10-07
 
 ### Fixed

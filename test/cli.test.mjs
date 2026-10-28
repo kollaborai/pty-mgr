@@ -347,17 +347,17 @@ describe('cli: with daemon', () => {
   }, 5000);
 
   describe('spawn output', () => {
-    it('spawn outputs: "name  pid=XXXX"', () => {
+    it('spawn outputs name, pid, and identities', () => {
       const r = runDaemon('spawn', 'test-version', 'echo', 'hi');
-      expect(r.stdout).toMatch(/^test-version\s+pid=\d+$/);
+      expect(r.stdout).toMatch(/^test-version\s+pid=\d+\s+daemonId=[0-9a-f-]+\s+sessionId=[0-9a-f-]+$/);
     });
   });
 
   describe('wrap output', () => {
-    it('wrap outputs: "name-N  pid=XXXX" (cwd name + increment)', () => {
+    it('wrap outputs name, pid, and identities (cwd name + increment)', () => {
       runDaemon('remove', 'all');
       const r = runDaemon('wrap', 'echo', 'hi');
-      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-1\\s+pid=\\d+$`));
+      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-1\\s+pid=\\d+\\s+daemonId=[0-9a-f-]+\\s+sessionId=[0-9a-f-]+$`));
       runDaemon('remove', WRAP_GLOB);
     });
   });
@@ -467,20 +467,20 @@ describe('cli: with daemon', () => {
   describe('aliases', () => {
     it('"n" works same as "spawn"', () => {
       const r = runDaemon('n', 'alias-n', 'echo', 'hi');
-      expect(r.stdout).toMatch(/^alias-n\s+pid=\d+$/);
+      expect(r.stdout).toMatch(/^alias-n\s+pid=\d+\s+daemonId=[0-9a-f-]+\s+sessionId=[0-9a-f-]+$/);
       runDaemon('remove', 'alias-n');
     });
 
     it('"new" works same as "spawn"', () => {
       const r = runDaemon('new', 'alias-new', 'echo', 'hi');
-      expect(r.stdout).toMatch(/^alias-new\s+pid=\d+$/);
+      expect(r.stdout).toMatch(/^alias-new\s+pid=\d+\s+daemonId=[0-9a-f-]+\s+sessionId=[0-9a-f-]+$/);
       runDaemon('remove', 'alias-new');
     });
 
     it('"w" works same as "wrap"', () => {
       runDaemon('remove', WRAP_GLOB);
       const r = runDaemon('w', 'echo', 'hi');
-      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-\\d+\\s+pid=\\d+$`));
+      expect(r.stdout).toMatch(new RegExp(`^${WRAP_BASE_RE}-\\d+\\s+pid=\\d+\\s+daemonId=[0-9a-f-]+\\s+sessionId=[0-9a-f-]+$`));
       runDaemon('remove', WRAP_GLOB);
     });
 
